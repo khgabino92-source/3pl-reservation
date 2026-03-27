@@ -103,9 +103,11 @@
   .rsv-card .rsv-company { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rsv-card .rsv-info { font-size: 10px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rsv-card.status-대기 { background: #fef3c7; border-left: 3px solid var(--amber); color: #92400e; }
+  .rsv-card.status-승인대기 { background: #fef3c7; border-left: 3px solid var(--amber); color: #92400e; }
   .rsv-card.status-확정 { background: #d1fae5; border-left: 3px solid var(--green); color: #065f46; }
   .rsv-card.status-완료 { background: #dbeafe; border-left: 3px solid var(--blue); color: #1d4ed8; }
   .rsv-card.status-취소 { background: #fee2e2; border-left: 3px solid var(--red); color: #991b1b; text-decoration: line-through; opacity: 0.6; }
+  .rsv-card.status-차단 { background: #6b7280; border-left: 3px solid #374151; color: #fff; }
 
   /* ---- Modal ---- */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center; }
@@ -273,7 +275,7 @@
         <h3>차량유형별 소요슬롯</h3>
         <table class="settings-table" id="vehicle-settings-table">
           <thead>
-            <tr><th>차량유형</th><th>소요슬롯 (30분 단위)</th></tr>
+            <tr><th>차량유형</th><th>소요슬롯 (30분 단위)</th><th>최대예약시간</th></tr>
           </thead>
           <tbody id="vehicle-settings-tbody"></tbody>
         </table>
@@ -579,7 +581,8 @@ function buildOccupancyMatrix(dateStr, reservations) {
     if (startIdx === -1) continue;
     const dockIdx = rsv.dock - 1;
     if (dockIdx < 0 || dockIdx >= dockCount) continue;
-    const slotCount = state.vehicleSlotMap[rsv.vehicleType] || 1;
+    // 차단 엔트리: 슬롯 수가 vehicleType 필드에 저장됨
+    const slotCount = rsv.status === '차단' ? (Number(rsv.vehicleType) || 1) : (state.vehicleSlotMap[rsv.vehicleType] || 1);
 
     for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
       matrix[startIdx + k][dockIdx] = {
@@ -614,10 +617,10 @@ function renderCalendar() {
 
   // Count reservations per date
   function countByDate(dateStr) {
-    const dateRsvs = state.reservations.filter(r => r.date === dateStr);
+    const dateRsvs = state.reservations.filter(r => r.date === dateStr && r.status !== '차단');
     let pending = 0, approved = 0;
     for (const r of dateRsvs) {
-      if (r.status === '대기') pending++;
+      if (r.status === '대기' || r.status === '승인대기') pending++;
       else if (r.status === '확정') approved++;
     }
     return { pending, approved, total: dateRsvs.length };
@@ -654,7 +657,7 @@ function renderCalendar() {
     theadHtml += `<option value="운영" ${operating ? 'selected' : ''}>운영</option>`;
     theadHtml += `<option value="미운영" ${!operating ? 'selected' : ''}>미운영</option>`;
     theadHtml += `</select>`;
-    theadHtml += ` <span class="cnt cnt-pending">대기:${counts.pending}</span>`;
+    theadHtml += ` <span class="cnt cnt-pending">승인대기:${counts.pending}</span>`;
     theadHtml += ` <span class="cnt cnt-approved">확정:${counts.approved}</span>`;
     theadHtml += `</div>`;
     theadHtml += '</th>';
@@ -718,6 +721,13 @@ function renderCalendar() {
 
         if (!operating) {
           tbodyHtml += `<td class="time-cell non-operating"${rowspan > 1 ? ` rowspan="${rowspan}"` : ''}></td>`;
+        } else if (cell && cell.isStart && cell.reservation.status === '차단') {
+          const rsv = cell.reservation;
+          tbodyHtml += `<td class="time-cell" rowspan="${rowspan}" onclick="showUnblockConfirm('${rsv.reservationId}')" style="padding:0;">`;
+          tbodyHtml += `<div class="rsv-card status-차단">`;
+          tbodyHtml += `<span class="rsv-company">차단</span>`;
+          tbodyHtml += `</div>`;
+          tbodyHtml += '</td>';
         } else if (cell && cell.isStart) {
           const rsv = cell.reservation;
           const statusClass = `status-${rsv.status}`;
@@ -728,7 +738,7 @@ function renderCalendar() {
           tbodyHtml += `</div>`;
           tbodyHtml += '</td>';
         } else if (!cell) {
-          tbodyHtml += `<td class="time-cell" onclick="showCreateModal('${ds}','${timeSlots[s]}',${dk + 1})"></td>`;
+          tbodyHtml += `<td class="time-cell" onclick="showSlotActionModal('${ds}','${timeSlots[s]}',${dk + 1})"></td>`;
         } else {
           // Occupied but not start (shouldn't happen without rowspan skip, but safety)
           tbodyHtml += `<td class="time-cell"></td>`;
@@ -787,8 +797,8 @@ function showReservationDetail(reservationId) {
   html += `<div class="detail-row"><span class="detail-label">메모</span><span class="detail-value">${escHtml(rsv.memo) || '-'}</span></div>`;
 
   html += `<div class="modal-actions">`;
-  if (rsv.status === '대기') {
-    html += `<button class="btn btn-success btn-sm" onclick="updateReservationStatus('${rsv.reservationId}','확정')">승인</button>`;
+  if (rsv.status === '승인대기' || rsv.status === '대기') {
+    html += `<button class="btn btn-success btn-sm" onclick="updateReservationStatus('${rsv.reservationId}','확정')">확정</button>`;
     html += `<button class="btn btn-danger btn-sm" onclick="promptCancelReservation('${rsv.reservationId}')">취소</button>`;
   }
   if (rsv.status === '확정') {
@@ -804,9 +814,11 @@ function showReservationDetail(reservationId) {
 function getStatusBadgeStyle(status) {
   switch (status) {
     case '대기': return 'background:#fef3c7;color:#92400e;';
+    case '승인대기': return 'background:#fef3c7;color:#92400e;';
     case '확정': return 'background:#d1fae5;color:#065f46;';
     case '완료': return 'background:#dbeafe;color:#1d4ed8;';
     case '취소': return 'background:#fee2e2;color:#991b1b;';
+    case '차단': return 'background:#6b7280;color:#fff;';
     default: return '';
   }
 }
@@ -932,6 +944,64 @@ async function submitCreateReservation(date, startTime, dock) {
       loadCalendarData();
     } else {
       showToast(res.error || '예약 등록 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// Slot Action Modal (empty cell click)
+// ============================================================
+function showSlotActionModal(date, time, dock) {
+  let html = `<h2>슬롯 선택</h2>`;
+  html += `<div class="detail-row"><span class="detail-label">날짜</span><span class="detail-value">${date}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">시작시간</span><span class="detail-value">${time}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">도크</span><span class="detail-value">도크${dock}</span></div>`;
+  html += `<div class="modal-actions" style="flex-direction:column;gap:12px;align-items:stretch;margin-top:24px;">`;
+  html += `<button class="btn btn-primary" onclick="closeModal();showCreateModal('${date}','${time}',${dock})">예약 등록</button>`;
+  html += `<button class="btn btn-outline" style="background:#6b7280;color:#fff;border-color:#6b7280;" onclick="closeModal();blockSlot('${date}','${time}',${dock})">슬롯 차단</button>`;
+  html += `<button class="btn btn-outline" onclick="closeModal()">취소</button>`;
+  html += `</div>`;
+  openModal(html);
+}
+
+// ============================================================
+// Block / Unblock Slot
+// ============================================================
+async function blockSlot(date, startTime, dock) {
+  try {
+    const res = await apiPost('blockSlot', { date, startTime, dock, slotCount: 1 });
+    if (res.success) {
+      showToast('슬롯이 차단되었습니다.', 'success');
+      loadCalendarData();
+    } else {
+      showToast(res.error || '차단 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+function showUnblockConfirm(reservationId) {
+  let html = `<h2>슬롯 차단 해제</h2>`;
+  html += `<p style="margin-bottom:20px;">이 슬롯의 차단을 해제하시겠습니까?</p>`;
+  html += `<div class="modal-actions">`;
+  html += `<button class="btn btn-primary btn-sm" onclick="unblockSlot('${reservationId}')">차단 해제</button>`;
+  html += `<button class="btn btn-outline btn-sm" onclick="closeModal()">취소</button>`;
+  html += `</div>`;
+  openModal(html);
+}
+
+async function unblockSlot(reservationId) {
+  try {
+    const res = await apiPost('unblockSlot', { reservationId });
+    if (res.success) {
+      closeModal();
+      showToast('차단이 해제되었습니다.', 'success');
+      loadCalendarData();
+    } else {
+      showToast(res.error || '차단 해제 실패', 'error');
     }
   } catch (e) {
     showToast('서버 오류: ' + e.message, 'error');
@@ -1109,6 +1179,7 @@ async function loadSettings() {
       html += `<tr>
         <td>${escHtml(v.vehicleType)}</td>
         <td><input type="number" min="1" max="20" value="${v.slotCount}" data-vehicle="${escAttr(v.vehicleType)}"></td>
+        <td><input type="time" value="${v.maxResvTime || ''}" data-vehicle-max="${escAttr(v.vehicleType)}" placeholder="미설정"></td>
       </tr>`;
     }
     document.getElementById('vehicle-settings-tbody').innerHTML = html;
@@ -1126,9 +1197,11 @@ async function saveSettings() {
   const rows = document.querySelectorAll('#vehicle-settings-tbody tr');
   const settings = [];
   rows.forEach((row, idx) => {
-    const vehicleType = row.querySelector('input').dataset.vehicle;
-    const slotCount = parseInt(row.querySelector('input').value) || 1;
-    const entry = { vehicleType, slotCount };
+    const inputs = row.querySelectorAll('input');
+    const vehicleType = inputs[0].dataset.vehicle;
+    const slotCount = parseInt(inputs[0].value) || 1;
+    const maxResvTime = inputs[1] ? inputs[1].value : '';
+    const entry = { vehicleType, slotCount, maxResvTime };
     if (idx === 0) {
       entry.operationStart = operationStart;
       entry.operationEnd = operationEnd;
