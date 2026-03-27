@@ -83,7 +83,7 @@
   .cal-table .col-time { width: 60px; min-width: 60px; position: sticky; left: 0; z-index: 5; background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 11px; padding: 4px 6px; }
   .cal-table thead .col-time { z-index: 15; }
   .cal-table .date-header { min-width: 110px; }
-  .cal-table .date-header-group { min-width: 220px; }
+  .cal-table .date-header-group { min-width: 130px; }
   .date-title { font-size: 13px; font-weight: 700; padding: 8px 4px 2px; }
   .date-title.today { color: var(--accent); }
   .date-title.non-operating { color: var(--red); text-decoration: line-through; }
@@ -93,15 +93,18 @@
   .date-meta .cnt-pending { color: var(--amber); }
   .date-meta .cnt-approved { color: var(--green); }
   .dock-header { font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 6px 4px; min-width: 110px; width: 110px; }
-  .time-cell { background: #fff; min-height: 38px; height: 38px; cursor: pointer; transition: background .1s; position: relative; }
+  .dock-header.inactive { background: #f3f4f6; color: #d1d5db; }
+  .time-cell { background: #fff; min-height: 32px; height: 32px; cursor: pointer; transition: background .1s; position: relative; }
   .time-cell:hover { background: #f0f7ff; }
   .time-cell.non-operating { background: #f3f4f6; cursor: default; }
   .time-cell.non-operating:hover { background: #f3f4f6; }
+  .time-cell.dock-inactive { background: #f9fafb; cursor: default; }
+  .time-cell.dock-inactive:hover { background: #f9fafb; }
 
   /* Reservation cards in cells */
-  .rsv-card { position: relative; margin: 1px; padding: 4px 6px; border-radius: 4px; font-size: 11px; line-height: 1.4; text-align: left; cursor: pointer; overflow: hidden; height: calc(100% - 2px); display: flex; flex-direction: column; justify-content: center; }
+  .rsv-card { position: relative; margin: 1px; padding: 3px 5px; border-radius: 4px; font-size: 10px; line-height: 1.3; text-align: left; cursor: pointer; overflow: hidden; height: calc(100% - 2px); display: flex; flex-direction: column; justify-content: center; }
   .rsv-card .rsv-company { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rsv-card .rsv-info { font-size: 10px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rsv-card .rsv-info { font-size: 9px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rsv-card.status-대기 { background: #fef3c7; border-left: 3px solid var(--amber); color: #92400e; }
   .rsv-card.status-승인대기 { background: #fef3c7; border-left: 3px solid var(--amber); color: #92400e; }
   .rsv-card.status-확정 { background: #d1fae5; border-left: 3px solid var(--green); color: #065f46; }
@@ -112,7 +115,7 @@
   /* ---- Modal ---- */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center; }
   .modal-overlay.show { display: flex; }
-  .modal { background: var(--card); border-radius: 16px; padding: 32px; width: 480px; max-width: 90vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+  .modal { background: var(--card); border-radius: 16px; padding: 32px; width: 520px; max-width: 90vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
   .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 24px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
   .modal .detail-row { display: flex; margin-bottom: 12px; }
@@ -144,6 +147,12 @@
   .settings-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
   .settings-table input { width: 80px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; text-align: center; }
   .settings-table input:focus { outline: none; border-color: var(--accent); }
+
+  /* ---- Limit mini table ---- */
+  .limit-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .limit-table th { background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 10px; padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+  .limit-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .limit-table input { width: 60px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; text-align: center; }
 
   .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 24px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 600; z-index: 2000; opacity: 0; transition: opacity .3s; pointer-events: none; }
   .toast.show { opacity: 1; }
@@ -239,8 +248,8 @@
                 <th>업체명</th>
                 <th>담당자명</th>
                 <th>연락처</th>
+                <th>하루총대수</th>
                 <th>상태</th>
-                <th>생성일</th>
                 <th>관리</th>
               </tr>
             </thead>
@@ -266,16 +275,17 @@
             <input type="time" id="setting-op-end" value="18:00">
           </div>
           <div class="form-group">
-            <label>도크 수</label>
+            <label>최대 도크 수</label>
             <input type="number" id="setting-dock-count" min="1" max="20" value="2" style="width:100%;">
           </div>
         </div>
+        <p style="font-size:11px;color:var(--text-secondary);margin-top:-8px;">* 일자별 실제 운영 도크 수는 예약현황 탭 캘린더 헤더에서 설정합니다. (기본: 1개)</p>
       </div>
       <div class="settings-card">
-        <h3>차량유형별 소요슬롯</h3>
+        <h3>차량유형별 소요슬롯 (20분 단위)</h3>
         <table class="settings-table" id="vehicle-settings-table">
           <thead>
-            <tr><th>차량유형</th><th>소요슬롯 (30분 단위)</th><th>최대예약시간</th></tr>
+            <tr><th>차량유형</th><th>소요슬롯 (20분 단위)</th><th>최대예약시간</th></tr>
           </thead>
           <tbody id="vehicle-settings-tbody"></tbody>
         </table>
@@ -299,7 +309,7 @@
 // ============================================================
 // Configuration
 // ============================================================
-const API_URL = 'https://script.google.com/macros/s/AKfycbyDS2uiyFwkdv8z0U_C3gdX4Y8x-Yg5yymsBmbVngJC6pvymcHfsj8xrOqQP9Qbf1NJiQ/exec'; // <-- Apps Script 배포 후 웹앱 URL을 여기에 입력
+const API_URL = 'https://script.google.com/macros/s/AKfycbyDS2uiyFwkdv8z0U_C3gdX4Y8x-Yg5yymsBmbVngJC6pvymcHfsj8xrOqQP9Qbf1NJiQ/exec';
 
 // ============================================================
 // State
@@ -312,7 +322,8 @@ let state = {
   schedule: {},
   reservations: [],
   customers: [],
-  vehicleSlotMap: {}
+  vehicleSlotMap: {},
+  slotMinutes: 20
 };
 
 // ============================================================
@@ -324,8 +335,6 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     showLogin();
   }
-
-  // Enter key on login
   document.getElementById('login-pw').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') doLogin();
   });
@@ -342,7 +351,6 @@ async function doLogin() {
   const pw = document.getElementById('login-pw').value.trim();
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
-
   if (!id || !pw) { errEl.textContent = '아이디와 비밀번호를 입력해주세요.'; return; }
 
   const btn = document.getElementById('login-btn');
@@ -387,10 +395,7 @@ function showApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   document.getElementById('admin-name').textContent = state.user.userName + ' 님';
-
-  // Set week to current week
-  const today = new Date();
-  state.weekStart = getMonday(today);
+  state.weekStart = getMonday(new Date());
   loadCalendarData();
 }
 
@@ -398,10 +403,7 @@ function showApp() {
 // API Layer
 // ============================================================
 async function api(action, params = {}) {
-  if (!API_URL) {
-    console.warn('API_URL이 설정되지 않았습니다.');
-    return { success: false, error: 'API_URL이 설정되지 않았습니다. admin.html 상단의 API_URL 값을 입력해주세요.' };
-  }
+  if (!API_URL) return { success: false, error: 'API_URL이 설정되지 않았습니다.' };
   const url = new URL(API_URL);
   url.searchParams.set('action', action);
   if (state.token) url.searchParams.set('token', state.token);
@@ -418,10 +420,7 @@ async function api(action, params = {}) {
 }
 
 async function apiPost(action, body = {}) {
-  if (!API_URL) {
-    console.warn('API_URL이 설정되지 않았습니다.');
-    return { success: false, error: 'API_URL이 설정되지 않았습니다. admin.html 상단의 API_URL 값을 입력해주세요.' };
-  }
+  if (!API_URL) return { success: false, error: 'API_URL이 설정되지 않았습니다.' };
   body.action = action;
   body.token = state.token;
   const resp = await fetch(API_URL, {
@@ -443,7 +442,6 @@ async function apiPost(action, body = {}) {
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
-
   if (tab === 'reservations') loadCalendarData();
   if (tab === 'customers') loadCustomers();
   if (tab === 'settings') loadSettings();
@@ -460,46 +458,22 @@ function getMonday(d) {
   date.setHours(0, 0, 0, 0);
   return date;
 }
-
-function addDays(d, n) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function fmtDate(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
-function fmtDateShort(d) {
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
-
+function fmtDateShort(d) { return `${d.getMonth()+1}/${d.getDate()}`; }
+const DAY_NAMES = ['일','월','화','수','목','금','토'];
 function getDayName(d) { return DAY_NAMES[d.getDay()]; }
-
-function isSameDate(a, b) { return fmtDate(a) === fmtDate(b); }
 
 // ============================================================
 // Week Navigation
 // ============================================================
-function navigateWeek(offset) {
-  state.weekStart = addDays(state.weekStart, offset * 7);
-  loadCalendarData();
-}
-
-function navigateToday() {
-  state.weekStart = getMonday(new Date());
-  loadCalendarData();
-}
-
+function navigateWeek(offset) { state.weekStart = addDays(state.weekStart, offset * 7); loadCalendarData(); }
+function navigateToday() { state.weekStart = getMonday(new Date()); loadCalendarData(); }
 function updateWeekLabel() {
   const sun = addDays(state.weekStart, 6);
-  const label = `${state.weekStart.getFullYear()}.${String(state.weekStart.getMonth() + 1).padStart(2, '0')}.${String(state.weekStart.getDate()).padStart(2, '0')} (${getDayName(state.weekStart)}) ~ ${sun.getFullYear()}.${String(sun.getMonth() + 1).padStart(2, '0')}.${String(sun.getDate()).padStart(2, '0')} (${getDayName(sun)})`;
+  const label = `${fmtDate(state.weekStart)} (${getDayName(state.weekStart)}) ~ ${fmtDate(sun)} (${getDayName(sun)})`;
   document.getElementById('week-label').textContent = label;
 }
 
@@ -508,7 +482,6 @@ function updateWeekLabel() {
 // ============================================================
 async function loadCalendarData() {
   updateWeekLabel();
-
   const startDate = fmtDate(state.weekStart);
   const endDate = fmtDate(addDays(state.weekStart, 6));
 
@@ -521,6 +494,7 @@ async function loadCalendarData() {
 
     if (settingsRes.success) {
       state.settings = settingsRes.data;
+      state.slotMinutes = settingsRes.data.global.slotMinutes || 20;
       state.vehicleSlotMap = {};
       (settingsRes.data.vehicleTypes || []).forEach(v => {
         state.vehicleSlotMap[v.vehicleType] = v.slotCount;
@@ -554,7 +528,7 @@ function generateTimeSlots() {
   const [eh, em] = operationEnd.split(':').map(Number);
   const startMin = sh * 60 + sm;
   const endMin = eh * 60 + em;
-  for (let m = startMin; m < endMin; m += 30) {
+  for (let m = startMin; m < endMin; m += state.slotMinutes) {
     const h = Math.floor(m / 60);
     const min = m % 60;
     slots.push(String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0'));
@@ -562,10 +536,20 @@ function generateTimeSlots() {
   return slots;
 }
 
-function buildOccupancyMatrix(dateStr, reservations) {
+function getDateDockCount(dateStr) {
+  const sched = state.schedule[dateStr];
+  if (sched && sched.dockCount !== undefined && sched.dockCount !== null) {
+    return sched.dockCount;
+  }
+  return 1; // default
+}
+
+function getMaxDockCount() {
+  return state.settings ? state.settings.global.dockCount : 2;
+}
+
+function buildOccupancyMatrix(dateStr, reservations, dockCount) {
   const timeSlots = generateTimeSlots();
-  const dockCount = state.settings ? state.settings.global.dockCount : 2;
-  // matrix[slotIdx][dockIdx] = { reservation, isStart }  or null
   const matrix = [];
   for (let s = 0; s < timeSlots.length; s++) {
     matrix[s] = [];
@@ -581,7 +565,6 @@ function buildOccupancyMatrix(dateStr, reservations) {
     if (startIdx === -1) continue;
     const dockIdx = rsv.dock - 1;
     if (dockIdx < 0 || dockIdx >= dockCount) continue;
-    // 차단 엔트리: 슬롯 수가 vehicleType 필드에 저장됨
     const slotCount = rsv.status === '차단' ? (Number(rsv.vehicleType) || 1) : (state.vehicleSlotMap[rsv.vehicleType] || 1);
 
     for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
@@ -598,24 +581,26 @@ function buildOccupancyMatrix(dateStr, reservations) {
 
 function renderCalendar() {
   const timeSlots = generateTimeSlots();
-  const dockCount = state.settings ? state.settings.global.dockCount : 2;
+  const maxDocks = getMaxDockCount();
   const today = new Date();
   const todayStr = fmtDate(today);
 
-  // Build dates array (7 days)
   const dates = [];
-  for (let i = 0; i < 7; i++) {
-    dates.push(addDays(state.weekStart, i));
+  for (let i = 0; i < 7; i++) dates.push(addDays(state.weekStart, i));
+
+  // Per-date dock counts
+  const dateDocks = {};
+  for (const d of dates) {
+    dateDocks[fmtDate(d)] = getDateDockCount(fmtDate(d));
   }
 
-  // Build occupancy matrices per date
+  // Build matrices per date (using max docks for display)
   const matrices = {};
   for (const d of dates) {
     const ds = fmtDate(d);
-    matrices[ds] = buildOccupancyMatrix(ds, state.reservations);
+    matrices[ds] = buildOccupancyMatrix(ds, state.reservations, maxDocks);
   }
 
-  // Count reservations per date
   function countByDate(dateStr) {
     const dateRsvs = state.reservations.filter(r => r.date === dateStr && r.status !== '차단');
     let pending = 0, approved = 0;
@@ -623,17 +608,14 @@ function renderCalendar() {
       if (r.status === '대기' || r.status === '승인대기') pending++;
       else if (r.status === '확정') approved++;
     }
-    return { pending, approved, total: dateRsvs.length };
+    return { pending, approved };
   }
 
-  // Check operating status
   function isOperating(dateStr) {
     const sched = state.schedule[dateStr];
     if (sched) return sched.operating === '운영' || sched.operating === 'Y' || sched.operating === true || sched.operating === 'true';
-    // Default: weekdays = operating
     const d = new Date(dateStr);
-    const day = d.getDay();
-    return day >= 1 && day <= 5;
+    return d.getDay() >= 1 && d.getDay() <= 5;
   }
 
   // ---- THEAD ----
@@ -647,17 +629,23 @@ function renderCalendar() {
     const isToday = ds === todayStr;
     const operating = isOperating(ds);
     const counts = countByDate(ds);
-    const dayLabel = `${d.getMonth() + 1}/${d.getDate()}(${getDayName(d)})`;
+    const dayLabel = `${d.getMonth()+1}/${d.getDate()}(${getDayName(d)})`;
     const titleClass = isToday ? 'today' : (!operating ? 'non-operating' : '');
+    const activeDocks = dateDocks[ds];
 
-    theadHtml += `<th class="date-header-group" colspan="${dockCount}">`;
+    theadHtml += `<th class="date-header-group" colspan="${maxDocks}">`;
     theadHtml += `<div class="date-title ${titleClass}">${dayLabel}</div>`;
     theadHtml += `<div class="date-meta">`;
     theadHtml += `<select onchange="toggleOperating('${ds}', this.value)" style="font-size:10px;">`;
     theadHtml += `<option value="운영" ${operating ? 'selected' : ''}>운영</option>`;
     theadHtml += `<option value="미운영" ${!operating ? 'selected' : ''}>미운영</option>`;
     theadHtml += `</select>`;
-    theadHtml += ` <span class="cnt cnt-pending">승인대기:${counts.pending}</span>`;
+    theadHtml += ` <select onchange="updateDateDockCount('${ds}', this.value)" style="font-size:10px;" title="도크 수">`;
+    for (let dk = 1; dk <= maxDocks; dk++) {
+      theadHtml += `<option value="${dk}" ${activeDocks === dk ? 'selected' : ''}>${dk}도크</option>`;
+    }
+    theadHtml += `</select>`;
+    theadHtml += ` <span class="cnt cnt-pending">대기:${counts.pending}</span>`;
     theadHtml += ` <span class="cnt cnt-approved">확정:${counts.approved}</span>`;
     theadHtml += `</div>`;
     theadHtml += '</th>';
@@ -667,8 +655,11 @@ function renderCalendar() {
   // Row 2: dock headers
   theadHtml += '<tr>';
   for (const d of dates) {
-    for (let dk = 1; dk <= dockCount; dk++) {
-      theadHtml += `<th class="dock-header">도크${dk}</th>`;
+    const ds = fmtDate(d);
+    const activeDocks = dateDocks[ds];
+    for (let dk = 1; dk <= maxDocks; dk++) {
+      const inactive = dk > activeDocks;
+      theadHtml += `<th class="dock-header${inactive ? ' inactive' : ''}">도크${dk}${inactive ? '(비활성)' : ''}</th>`;
     }
   }
   theadHtml += '</tr>';
@@ -676,18 +667,15 @@ function renderCalendar() {
   document.getElementById('cal-thead').innerHTML = theadHtml;
 
   // ---- TBODY ----
-  // Track which cells to skip (due to rowspan)
-  // skipMap[slotIdx][globalColIdx] = true
   const skipMap = {};
   for (let s = 0; s < timeSlots.length; s++) skipMap[s] = {};
 
-  // Pre-calculate rowspans
-  const rowspanMap = {}; // `${slotIdx}-${globalCol}` => rowspan
+  const rowspanMap = {};
   for (let di = 0; di < dates.length; di++) {
     const ds = fmtDate(dates[di]);
     const matrix = matrices[ds];
-    for (let dk = 0; dk < dockCount; dk++) {
-      const globalCol = di * dockCount + dk;
+    for (let dk = 0; dk < maxDocks; dk++) {
+      const globalCol = di * maxDocks + dk;
       for (let s = 0; s < timeSlots.length; s++) {
         const cell = matrix[s] ? matrix[s][dk] : null;
         if (cell && cell.isStart) {
@@ -710,29 +698,29 @@ function renderCalendar() {
       const ds = fmtDate(dates[di]);
       const matrix = matrices[ds];
       const operating = isOperating(ds);
+      const activeDocks = dateDocks[ds];
 
-      for (let dk = 0; dk < dockCount; dk++) {
-        const globalCol = di * dockCount + dk;
-
+      for (let dk = 0; dk < maxDocks; dk++) {
+        const globalCol = di * maxDocks + dk;
         if (skipMap[s][globalCol]) continue;
 
         const cell = matrix[s] ? matrix[s][dk] : null;
         const rowspan = rowspanMap[`${s}-${globalCol}`] || 1;
+        const isDockInactive = dk >= activeDocks;
 
         if (!operating) {
           tbodyHtml += `<td class="time-cell non-operating"${rowspan > 1 ? ` rowspan="${rowspan}"` : ''}></td>`;
+        } else if (isDockInactive) {
+          tbodyHtml += `<td class="time-cell dock-inactive"${rowspan > 1 ? ` rowspan="${rowspan}"` : ''}></td>`;
         } else if (cell && cell.isStart && cell.reservation.status === '차단') {
           const rsv = cell.reservation;
           tbodyHtml += `<td class="time-cell" rowspan="${rowspan}" onclick="showUnblockConfirm('${rsv.reservationId}')" style="padding:0;">`;
-          tbodyHtml += `<div class="rsv-card status-차단">`;
-          tbodyHtml += `<span class="rsv-company">차단</span>`;
-          tbodyHtml += `</div>`;
+          tbodyHtml += `<div class="rsv-card status-차단"><span class="rsv-company">차단</span></div>`;
           tbodyHtml += '</td>';
         } else if (cell && cell.isStart) {
           const rsv = cell.reservation;
-          const statusClass = `status-${rsv.status}`;
           tbodyHtml += `<td class="time-cell" rowspan="${rowspan}" onclick="showReservationDetail('${rsv.reservationId}')" style="padding:0;">`;
-          tbodyHtml += `<div class="rsv-card ${statusClass}">`;
+          tbodyHtml += `<div class="rsv-card status-${rsv.status}">`;
           tbodyHtml += `<span class="rsv-company">${escHtml(rsv.companyName)}</span>`;
           tbodyHtml += `<span class="rsv-info">${escHtml(rsv.vehicleType)} / ${escHtml(rsv.workType)}</span>`;
           tbodyHtml += `</div>`;
@@ -740,12 +728,10 @@ function renderCalendar() {
         } else if (!cell) {
           tbodyHtml += `<td class="time-cell" onclick="showSlotActionModal('${ds}','${timeSlots[s]}',${dk + 1})"></td>`;
         } else {
-          // Occupied but not start (shouldn't happen without rowspan skip, but safety)
           tbodyHtml += `<td class="time-cell"></td>`;
         }
       }
     }
-
     tbodyHtml += '</tr>';
   }
 
@@ -753,15 +739,35 @@ function renderCalendar() {
 }
 
 // ============================================================
-// Schedule Toggle
+// Schedule Toggle & Dock Count Update
 // ============================================================
 async function toggleOperating(dateStr, value) {
   try {
-    const res = await apiPost('updateSchedule', { date: dateStr, operating: value });
+    const currentDocks = getDateDockCount(dateStr);
+    const res = await apiPost('updateSchedule', { date: dateStr, operating: value, dockCount: currentDocks });
     if (res.success) {
-      state.schedule[dateStr] = { date: dateStr, operating: value, note: '' };
+      state.schedule[dateStr] = { ...state.schedule[dateStr], date: dateStr, operating: value };
       renderCalendar();
       showToast(`${dateStr} ${value} 설정 완료`, 'success');
+    } else {
+      showToast(res.error || '업데이트 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+async function updateDateDockCount(dateStr, value) {
+  const dockCount = parseInt(value) || 1;
+  try {
+    const sched = state.schedule[dateStr];
+    const operating = sched ? sched.operating : '운영';
+    const res = await apiPost('updateSchedule', { date: dateStr, operating: operating, dockCount: dockCount });
+    if (res.success) {
+      if (!state.schedule[dateStr]) state.schedule[dateStr] = { date: dateStr, operating: '운영', note: '' };
+      state.schedule[dateStr].dockCount = dockCount;
+      renderCalendar();
+      showToast(`${dateStr} 도크 ${dockCount}개 설정`, 'success');
     } else {
       showToast(res.error || '업데이트 실패', 'error');
     }
@@ -779,20 +785,18 @@ function showReservationDetail(reservationId) {
 
   const slotCount = state.vehicleSlotMap[rsv.vehicleType] || 1;
   const [h, m] = rsv.startTime.split(':').map(Number);
-  const endMin = h * 60 + m + slotCount * 30;
+  const endMin = h * 60 + m + slotCount * state.slotMinutes;
   const endTime = String(Math.floor(endMin / 60)).padStart(2, '0') + ':' + String(endMin % 60).padStart(2, '0');
-
-  const statusBadge = `<span class="badge badge-${rsv.status === '활성' || rsv.status === '확정' ? 'active' : (rsv.status === '취소' ? 'inactive' : 'active')}" style="${getStatusBadgeStyle(rsv.status)}">${rsv.status}</span>`;
 
   let html = `<h2>예약 상세정보</h2>`;
   html += `<div class="detail-row"><span class="detail-label">예약ID</span><span class="detail-value">${rsv.reservationId}</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">날짜</span><span class="detail-value">${rsv.date}</span></div>`;
-  html += `<div class="detail-row"><span class="detail-label">시간</span><span class="detail-value">${rsv.startTime} ~ ${endTime} (${slotCount}슬롯)</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">시간</span><span class="detail-value">${rsv.startTime} ~ ${endTime} (${slotCount}슬롯, ${slotCount * state.slotMinutes}분)</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">도크</span><span class="detail-value">도크${rsv.dock}</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">업체</span><span class="detail-value">${escHtml(rsv.companyName)} (${escHtml(rsv.companyCode)})</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">차량유형</span><span class="detail-value">${escHtml(rsv.vehicleType)}</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">작업유형</span><span class="detail-value">${escHtml(rsv.workType)}</span></div>`;
-  html += `<div class="detail-row"><span class="detail-label">상태</span><span class="detail-value">${statusBadge}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">상태</span><span class="detail-value"><span class="badge" style="${getStatusBadgeStyle(rsv.status)}">${rsv.status}</span></span></div>`;
   html += `<div class="detail-row"><span class="detail-label">예약시간</span><span class="detail-value">${rsv.reservedAt || '-'}</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">메모</span><span class="detail-value">${escHtml(rsv.memo) || '-'}</span></div>`;
 
@@ -813,8 +817,7 @@ function showReservationDetail(reservationId) {
 
 function getStatusBadgeStyle(status) {
   switch (status) {
-    case '대기': return 'background:#fef3c7;color:#92400e;';
-    case '승인대기': return 'background:#fef3c7;color:#92400e;';
+    case '대기': case '승인대기': return 'background:#fef3c7;color:#92400e;';
     case '확정': return 'background:#d1fae5;color:#065f46;';
     case '완료': return 'background:#dbeafe;color:#1d4ed8;';
     case '취소': return 'background:#fee2e2;color:#991b1b;';
@@ -865,7 +868,7 @@ async function cancelReservation(reservationId, reason) {
 function showCreateModal(date, time, dock) {
   const customers = state.customers || [];
   const vehicleTypes = state.settings ? state.settings.vehicleTypes : [];
-  const workTypes = ['입고', '반품입고', '기타'];
+  const workTypes = ['수작업', '파렛트'];
 
   let customerOptions = '<option value="">-- 업체 선택 --</option>';
   for (const c of customers) {
@@ -876,7 +879,7 @@ function showCreateModal(date, time, dock) {
 
   let vehicleOptions = '';
   for (const v of vehicleTypes) {
-    vehicleOptions += `<option value="${escAttr(v.vehicleType)}">${escHtml(v.vehicleType)} (${v.slotCount}슬롯)</option>`;
+    vehicleOptions += `<option value="${escAttr(v.vehicleType)}">${escHtml(v.vehicleType)} (${v.slotCount}슬롯/${v.slotCount * state.slotMinutes}분)</option>`;
   }
 
   let workOptions = '';
@@ -897,7 +900,6 @@ function showCreateModal(date, time, dock) {
   html += `<button class="btn btn-outline btn-sm" onclick="closeModal()">취소</button>`;
   html += `</div>`;
 
-  // Ensure customers are loaded
   if (customers.length === 0) {
     loadCustomersForModal().then(() => {
       const sel = document.getElementById('modal-company');
@@ -951,7 +953,7 @@ async function submitCreateReservation(date, startTime, dock) {
 }
 
 // ============================================================
-// Slot Action Modal (empty cell click)
+// Slot Action Modal
 // ============================================================
 function showSlotActionModal(date, time, dock) {
   let html = `<h2>슬롯 선택</h2>`;
@@ -1044,8 +1046,8 @@ function renderCustomerTable() {
         <td>${escHtml(c.companyName)}</td>
         <td>${escHtml(c.contactName)}</td>
         <td>${escHtml(c.phone)}</td>
+        <td style="font-weight:600;">${c.dailyTotal || '-'}</td>
         <td><span class="badge ${badgeClass}">${escHtml(c.status)}</span></td>
-        <td>${escHtml(c.createdAt)}</td>
         <td>
           <button class="btn btn-outline btn-sm" onclick="showEditCustomerModal('${escAttr(c.companyCode)}')" style="margin-right:4px;">수정</button>
           <button class="btn btn-sm ${c.status === '활성' ? 'btn-danger' : 'btn-success'}" onclick="toggleCustomerStatus('${escAttr(c.companyCode)}','${toggleLabel}')">${toggleLabel}</button>
@@ -1060,6 +1062,17 @@ function showCustomerModal(customer) {
   const isEdit = !!customer;
   const title = isEdit ? '고객사 수정' : '신규 고객사 등록';
 
+  // Parse existing limits
+  let vehicleLimits = {};
+  let workTypeLimits = {};
+  if (isEdit) {
+    try { vehicleLimits = JSON.parse(customer.vehicleLimits || '{}'); } catch(e) {}
+    try { workTypeLimits = JSON.parse(customer.workTypeLimits || '{}'); } catch(e) {}
+  }
+
+  const vehicleTypes = state.settings ? state.settings.vehicleTypes.map(v => v.vehicleType) : ['1T','5T','11T','컨테이너 20FT','컨테이너 40FT'];
+  const workTypes = ['수작업', '파렛트'];
+
   let html = `<h2>${title}</h2>`;
   html += `<div class="form-group"><label>업체코드</label><input type="text" id="modal-cust-code" value="${isEdit ? escAttr(customer.companyCode) : ''}" ${isEdit ? 'readonly style="background:#f3f4f6;"' : 'placeholder="예: COMP001"'}></div>`;
   html += `<div class="form-group"><label>업체명</label><input type="text" id="modal-cust-name" value="${isEdit ? escAttr(customer.companyName) : ''}" placeholder="업체명 입력"></div>`;
@@ -1068,6 +1081,30 @@ function showCustomerModal(customer) {
   }
   html += `<div class="form-group"><label>담당자명</label><input type="text" id="modal-cust-contact" value="${isEdit ? escAttr(customer.contactName) : ''}" placeholder="담당자명 입력"></div>`;
   html += `<div class="form-group"><label>연락처</label><input type="text" id="modal-cust-phone" value="${isEdit ? escAttr(customer.phone) : ''}" placeholder="010-0000-0000"></div>`;
+
+  // Daily limit section
+  html += `<hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">`;
+  html += `<h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">하루 입차 제한</h3>`;
+  html += `<div class="form-group"><label>하루 총 대수 제한 (0=무제한)</label><input type="number" id="modal-cust-daily" min="0" value="${isEdit ? (customer.dailyTotal || 0) : 0}" style="width:100px;"></div>`;
+
+  // Vehicle type limits
+  html += `<div class="form-group"><label>차량유형별 제한 (0=무제한)</label>`;
+  html += `<table class="limit-table"><thead><tr><th>차량유형</th><th>최대 대수</th></tr></thead><tbody>`;
+  for (const vt of vehicleTypes) {
+    const val = vehicleLimits[vt] || 0;
+    html += `<tr><td>${escHtml(vt)}</td><td><input type="number" min="0" value="${val}" data-vlimit="${escAttr(vt)}"></td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  // Work type limits
+  html += `<div class="form-group"><label>입고유형별 제한 (0=무제한)</label>`;
+  html += `<table class="limit-table"><thead><tr><th>입고유형</th><th>최대 대수</th></tr></thead><tbody>`;
+  for (const wt of workTypes) {
+    const val = workTypeLimits[wt] || 0;
+    html += `<tr><td>${escHtml(wt)}</td><td><input type="number" min="0" value="${val}" data-wlimit="${escAttr(wt)}"></td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+
   html += `<div class="modal-actions">`;
   html += `<button class="btn btn-primary btn-sm" onclick="${isEdit ? `submitEditCustomer('${escAttr(customer.companyCode)}')` : 'submitCreateCustomer()'}">${isEdit ? '수정' : '등록'}</button>`;
   html += `<button class="btn btn-outline btn-sm" onclick="closeModal()">취소</button>`;
@@ -1081,19 +1118,40 @@ function showEditCustomerModal(companyCode) {
   if (customer) showCustomerModal(customer);
 }
 
+function collectLimitsFromModal() {
+  const dailyTotal = parseInt(document.getElementById('modal-cust-daily').value) || 0;
+  const vehicleLimits = {};
+  document.querySelectorAll('[data-vlimit]').forEach(input => {
+    const v = parseInt(input.value) || 0;
+    if (v > 0) vehicleLimits[input.dataset.vlimit] = v;
+  });
+  const workTypeLimits = {};
+  document.querySelectorAll('[data-wlimit]').forEach(input => {
+    const v = parseInt(input.value) || 0;
+    if (v > 0) workTypeLimits[input.dataset.wlimit] = v;
+  });
+  return { dailyTotal, vehicleLimits: JSON.stringify(vehicleLimits), workTypeLimits: JSON.stringify(workTypeLimits) };
+}
+
 async function submitCreateCustomer() {
   const companyCode = document.getElementById('modal-cust-code').value.trim();
   const companyName = document.getElementById('modal-cust-name').value.trim();
   const password = document.getElementById('modal-cust-pw').value.trim();
   const contactName = document.getElementById('modal-cust-contact').value.trim();
   const phone = document.getElementById('modal-cust-phone').value.trim();
+  const limits = collectLimitsFromModal();
 
   if (!companyCode || !companyName || !password) {
     showToast('업체코드, 업체명, 비밀번호는 필수입니다.', 'error'); return;
   }
 
   try {
-    const res = await apiPost('createCustomer', { companyCode, companyName, password, contactName, phone });
+    const res = await apiPost('createCustomer', {
+      companyCode, companyName, password, contactName, phone,
+      dailyTotal: limits.dailyTotal,
+      vehicleLimits: limits.vehicleLimits,
+      workTypeLimits: limits.workTypeLimits
+    });
     if (res.success) {
       closeModal();
       showToast('고객사가 등록되었습니다.', 'success');
@@ -1110,13 +1168,19 @@ async function submitEditCustomer(companyCode) {
   const companyName = document.getElementById('modal-cust-name').value.trim();
   const contactName = document.getElementById('modal-cust-contact').value.trim();
   const phone = document.getElementById('modal-cust-phone').value.trim();
+  const limits = collectLimitsFromModal();
 
   if (!companyName) { showToast('업체명은 필수입니다.', 'error'); return; }
 
   try {
     const res = await apiPost('updateCustomer', {
       companyCode,
-      fields: { companyName, contactName, phone }
+      fields: {
+        companyName, contactName, phone,
+        dailyTotal: limits.dailyTotal,
+        vehicleLimits: limits.vehicleLimits,
+        workTypeLimits: limits.workTypeLimits
+      }
     });
     if (res.success) {
       closeModal();
@@ -1132,12 +1196,8 @@ async function submitEditCustomer(companyCode) {
 
 async function toggleCustomerStatus(companyCode, newStatus) {
   if (!confirm(`${companyCode} 업체를 '${newStatus}' 상태로 변경하시겠습니까?`)) return;
-
   try {
-    const res = await apiPost('updateCustomer', {
-      companyCode,
-      fields: { status: newStatus }
-    });
+    const res = await apiPost('updateCustomer', { companyCode, fields: { status: newStatus } });
     if (res.success) {
       showToast(`${companyCode} 상태를 '${newStatus}'로 변경했습니다.`, 'success');
       loadCustomers();
@@ -1158,6 +1218,7 @@ async function loadSettings() {
     if (!res.success) { showToast(res.error || '설정 로딩 실패', 'error'); return; }
 
     state.settings = res.data;
+    state.slotMinutes = res.data.global.slotMinutes || 20;
     const g = res.data.global;
 
     document.getElementById('setting-op-start').value = g.operationStart || '09:00';
@@ -1178,7 +1239,7 @@ async function loadSettings() {
     for (const v of vehicles) {
       html += `<tr>
         <td>${escHtml(v.vehicleType)}</td>
-        <td><input type="number" min="1" max="20" value="${v.slotCount}" data-vehicle="${escAttr(v.vehicleType)}"></td>
+        <td><input type="number" min="1" max="20" value="${v.slotCount}" data-vehicle="${escAttr(v.vehicleType)}"> <span style="font-size:11px;color:var(--text-secondary);">(${v.slotCount * state.slotMinutes}분)</span></td>
         <td><input type="time" value="${v.maxResvTime || ''}" data-vehicle-max="${escAttr(v.vehicleType)}" placeholder="미설정"></td>
       </tr>`;
     }
@@ -1218,9 +1279,8 @@ async function saveSettings() {
     const res = await apiPost('updateSettings', { settings });
     if (res.success) {
       showToast('설정이 저장되었습니다.', 'success');
-      // Reload settings into state
       state.settings = {
-        global: { operationStart, operationEnd, dockCount },
+        global: { operationStart, operationEnd, dockCount, slotMinutes: state.slotMinutes },
         vehicleTypes: settings.map(s => ({ vehicleType: s.vehicleType, slotCount: s.slotCount }))
       };
       state.vehicleSlotMap = {};
@@ -1243,19 +1303,9 @@ function openModal(html) {
   document.getElementById('modal-content').innerHTML = html;
   document.getElementById('modal-overlay').classList.add('show');
 }
-
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('show');
-}
-
-function closeModalOverlay(e) {
-  if (e.target === document.getElementById('modal-overlay')) closeModal();
-}
-
-// Close modal with Escape key
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeModal();
-});
+function closeModal() { document.getElementById('modal-overlay').classList.remove('show'); }
+function closeModalOverlay(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
 
 // ============================================================
 // Toast
@@ -1274,7 +1324,6 @@ function escHtml(str) {
   if (!str) return '';
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
 function escAttr(str) {
   if (!str) return '';
   return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

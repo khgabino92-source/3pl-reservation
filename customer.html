@@ -92,6 +92,8 @@
   .option-card .option-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
 
   .slot-info { background: #f0f7ff; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 8px; }
+  .limit-info { background: #fef3c7; border-radius: 8px; padding: 10px 16px; font-size: 12px; color: #92400e; font-weight: 500; margin-top: 8px; }
+  .limit-info.over { background: #fee2e2; color: #991b1b; }
 
   /* Calendar grid */
   .date-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 8px; }
@@ -100,13 +102,11 @@
   .date-cell.selected { border-color: var(--accent); background: #eff6ff; }
   .date-cell.disabled { background: #f3f4f6; cursor: default; opacity: 0.6; }
   .date-cell.available { border-color: var(--green); }
-  .date-cell.few-left { border-color: var(--orange); }
   .date-cell .date-num { font-size: 16px; font-weight: 700; }
   .date-cell .date-day { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
   .date-cell .date-status { font-size: 10px; margin-top: 4px; font-weight: 600; }
   .date-cell .date-status.closed { color: var(--red); }
   .date-cell .date-status.open { color: var(--green); }
-  .date-cell .date-status.few { color: var(--orange); }
   .date-cell.sunday .date-num { color: var(--red); }
   .date-cell.saturday .date-num { color: var(--accent); }
   .week-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 8px; }
@@ -282,7 +282,7 @@
 // ============================================================
 // Configuration
 // ============================================================
-const API_URL = 'https://script.google.com/macros/s/AKfycbyDS2uiyFwkdv8z0U_C3gdX4Y8x-Yg5yymsBmbVngJC6pvymcHfsj8xrOqQP9Qbf1NJiQ/exec'; // <-- Apps Script 배포 후 웹앱 URL을 여기에 입력
+const API_URL = 'https://script.google.com/macros/s/AKfycbyDS2uiyFwkdv8z0U_C3gdX4Y8x-Yg5yymsBmbVngJC6pvymcHfsj8xrOqQP9Qbf1NJiQ/exec';
 
 // ============================================================
 // State
@@ -291,7 +291,7 @@ let state = {
   token: sessionStorage.getItem('rsv_cust_token'),
   user: JSON.parse(sessionStorage.getItem('rsv_cust_user') || 'null'),
   settings: null,
-  // Wizard state
+  slotMinutes: 20,
   step: 1,
   selectedVehicle: null,
   selectedWorkType: null,
@@ -300,9 +300,8 @@ let state = {
   selectedDock: null,
   availableSlots: null,
   slotData: null,
-  // Schedule data for calendar
   scheduleMap: {},
-  // Reservations
+  myLimits: null,
   reservations: [],
   filterStatus: '전체'
 };
@@ -340,7 +339,6 @@ async function doLogin() {
   const pw = document.getElementById('login-pw').value.trim();
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
-
   if (!id || !pw) { errEl.textContent = '업체코드와 비밀번호를 입력해주세요.'; return; }
 
   const btn = document.getElementById('login-btn');
@@ -395,10 +393,7 @@ function showApp() {
 // API Layer
 // ============================================================
 async function api(action, params = {}) {
-  if (!API_URL) {
-    console.warn('API_URL이 설정되지 않았습니다.');
-    return { success: false, error: 'API_URL이 설정되지 않았습니다. customer.html 상단의 API_URL 값을 입력해주세요.' };
-  }
+  if (!API_URL) return { success: false, error: 'API_URL이 설정되지 않았습니다.' };
   const url = new URL(API_URL);
   url.searchParams.set('action', action);
   if (state.token) url.searchParams.set('token', state.token);
@@ -415,10 +410,7 @@ async function api(action, params = {}) {
 }
 
 async function apiPost(action, body = {}) {
-  if (!API_URL) {
-    console.warn('API_URL이 설정되지 않았습니다.');
-    return { success: false, error: 'API_URL이 설정되지 않았습니다. customer.html 상단의 API_URL 값을 입력해주세요.' };
-  }
+  if (!API_URL) return { success: false, error: 'API_URL이 설정되지 않았습니다.' };
   body.action = action;
   body.token = state.token;
   const resp = await fetch(API_URL, {
@@ -440,11 +432,7 @@ async function apiPost(action, body = {}) {
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
-
-  if (tab === 'reserve') {
-    resetWizard();
-    renderWizard();
-  }
+  if (tab === 'reserve') { resetWizard(); renderWizard(); }
   if (tab === 'history') loadReservations();
 }
 
@@ -456,6 +444,7 @@ async function loadSettings() {
     const res = await api('getSettings');
     if (res.success) {
       state.settings = res.data;
+      state.slotMinutes = res.data.global.slotMinutes || 20;
     }
   } catch (e) {
     console.error('Settings load error:', e);
@@ -469,33 +458,29 @@ function getVehicleSlotCount(vehicleType) {
 }
 
 function getSlotMinutes() {
-  return 30; // Each slot is 30 minutes
+  return state.slotMinutes;
 }
 
 // ============================================================
 // Date Utilities
 // ============================================================
 function fmtDate(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
-function addDays(d, n) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function getDayName(d) { return DAY_NAMES[d.getDay()]; }
-
 function addMinutesToTime(timeStr, minutes) {
   const [h, m] = timeStr.split(':').map(Number);
   const total = h * 60 + m + minutes;
-  const hh = String(Math.floor(total / 60)).padStart(2, '0');
-  const mm = String(total % 60).padStart(2, '0');
-  return `${hh}:${mm}`;
+  return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+}
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  date.setDate(diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
 }
 
 // ============================================================
@@ -510,6 +495,7 @@ function resetWizard() {
   state.selectedDock = null;
   state.availableSlots = null;
   state.slotData = null;
+  state.myLimits = null;
 }
 
 function renderWizardProgress() {
@@ -531,7 +517,6 @@ function renderWizardProgress() {
 function renderWizard() {
   renderWizardProgress();
   const el = document.getElementById('wizard-content');
-
   switch (state.step) {
     case 1: renderStep1(el); break;
     case 2: renderStep2(el); break;
@@ -543,10 +528,8 @@ function renderWizard() {
 // ---- Step 1: Vehicle / Work type ----
 function renderStep1(el) {
   const vehicles = (state.settings && state.settings.vehicleTypes) || [];
-  const vehicleIcons = {
-    '1T': '&#x1F69A;', '5T': '&#x1F69B;', '11T': '&#x1F69B;',
-    '컨테이너 20FT': '&#x1F4E6;', '컨테이너 40FT': '&#x1F4E6;'
-  };
+  const sm = getSlotMinutes();
+  const vehicleIcons = { '1T': '&#x1F69A;', '5T': '&#x1F69B;', '11T': '&#x1F69B;', '컨테이너 20FT': '&#x1F4E6;', '컨테이너 40FT': '&#x1F4E6;' };
   const workTypes = ['수작업', '파렛트'];
   const workIcons = { '수작업': '&#x1F44B;', '파렛트': '&#x1F4E5;' };
 
@@ -557,7 +540,7 @@ function renderStep1(el) {
     vehicleCards += `<div class="option-card ${sel}" onclick="selectVehicle('${v.vehicleType}')">
       <div class="option-icon">${icon}</div>
       <div class="option-label">${v.vehicleType}</div>
-      <div class="option-sub">${v.slotCount}슬롯 (${v.slotCount * 30}분)</div>
+      <div class="option-sub">${v.slotCount}슬롯 (${v.slotCount * sm}분)</div>
     </div>`;
   });
 
@@ -572,8 +555,7 @@ function renderStep1(el) {
   });
 
   const slotCount = state.selectedVehicle ? getVehicleSlotCount(state.selectedVehicle) : null;
-  const slotInfo = slotCount ? `<div class="slot-info">소요시간: ${slotCount}슬롯 (${slotCount * 30}분)</div>` : '';
-
+  const slotInfo = slotCount ? `<div class="slot-info">소요시간: ${slotCount}슬롯 (${slotCount * sm}분)</div>` : '';
   const canNext = state.selectedVehicle && state.selectedWorkType;
 
   el.innerHTML = `
@@ -590,24 +572,16 @@ function renderStep1(el) {
     </div>`;
 }
 
-function selectVehicle(type) {
-  state.selectedVehicle = type;
-  renderWizard();
-}
-
-function selectWorkType(type) {
-  state.selectedWorkType = type;
-  renderWizard();
-}
+function selectVehicle(type) { state.selectedVehicle = type; renderWizard(); }
+function selectWorkType(type) { state.selectedWorkType = type; renderWizard(); }
 
 // ---- Step 2: Date selection ----
-let _step2RequestId = 0; // 비동기 렌더링 충돌 방지
+let _step2RequestId = 0;
 
 async function renderStep2(el) {
   const requestId = ++_step2RequestId;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   const thisMonday = getMonday(today);
   const nextSunday = addDays(thisMonday, 13);
   const startDate = fmtDate(thisMonday);
@@ -623,15 +597,12 @@ async function renderStep2(el) {
   </div>`;
 
   try {
-    // 스케줄만 1회 호출 (14번 호출 제거 → 속도 개선)
     const scheduleRes = await api('getSchedule', { startDate, endDate });
-    if (requestId !== _step2RequestId) return; // 이미 다른 스텝으로 이동함
-
+    if (requestId !== _step2RequestId) return;
     state.scheduleMap = {};
     if (scheduleRes.success) {
-      (scheduleRes.data || []).forEach(s => { state.scheduleMap[s.date || s['날짜']] = s; });
+      (scheduleRes.data || []).forEach(s => { state.scheduleMap[s.date] = s; });
     }
-
     renderStep2Calendar(el, thisMonday);
   } catch (e) {
     if (requestId !== _step2RequestId) return;
@@ -646,20 +617,11 @@ async function renderStep2(el) {
   }
 }
 
-function getMonday(d) {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
 function renderStep2Calendar(el, startMonday) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+  const dayLabels = ['월','화','수','목','금','토','일'];
   let weekHeader = '<div class="week-header">';
   dayLabels.forEach((d, i) => {
     const cls = i === 6 ? 'sun' : (i === 5 ? 'sat' : '');
@@ -674,9 +636,8 @@ function renderStep2Calendar(el, startMonday) {
     const dayOfWeek = d.getDay();
     const isPast = d < today;
     const schedule = state.scheduleMap[dateStr];
-    // 운영여부: 'N', 'n', false 등 모두 미운영 처리. 스케줄 없으면 운영으로 간주 (일요일 제외)
     const isSunday = dayOfWeek === 0;
-    const opValue = schedule ? String(schedule.operating || schedule['운영여부'] || '').toLowerCase() : '';
+    const opValue = schedule ? String(schedule.operating || '').toLowerCase() : '';
     const isNonOperating = isSunday || opValue === 'n' || opValue === '미운영' || opValue === 'false' || opValue === '0';
     const isDisabled = isPast || isNonOperating;
     const isSelected = state.selectedDate === dateStr;
@@ -685,18 +646,13 @@ function renderStep2Calendar(el, startMonday) {
     if (isDisabled) cls += ' disabled';
     else if (isSelected) cls += ' selected';
     else cls += ' available';
-
     if (dayOfWeek === 0) cls += ' sunday';
     if (dayOfWeek === 6) cls += ' saturday';
 
     let statusHtml = '';
-    if (isNonOperating) {
-      statusHtml = '<div class="date-status closed">운영안함</div>';
-    } else if (isPast) {
-      statusHtml = '<div class="date-status closed">지난 날짜</div>';
-    } else {
-      statusHtml = '<div class="date-status open">예약가능</div>';
-    }
+    if (isNonOperating) statusHtml = '<div class="date-status closed">운영안함</div>';
+    else if (isPast) statusHtml = '<div class="date-status closed">지난 날짜</div>';
+    else statusHtml = '<div class="date-status open">예약가능</div>';
 
     const onclick = isDisabled ? '' : `onclick="selectDate('${dateStr}')"`;
 
@@ -726,12 +682,10 @@ function selectDate(dateStr) {
   state.selectedDate = dateStr;
   state.selectedTime = null;
   state.selectedDock = null;
-  // API 호출 없이 즉시 렌더링
   const el = document.getElementById('wizard-content');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const thisMonday = getMonday(today);
-  renderStep2Calendar(el, thisMonday);
+  renderStep2Calendar(el, getMonday(today));
 }
 
 // ---- Step 3: Time/Dock selection ----
@@ -746,16 +700,15 @@ async function renderStep3(el) {
   </div>`;
 
   try {
-    const res = await api('getAvailableSlots', {
-      date: state.selectedDate,
-      vehicleType: state.selectedVehicle
-    });
+    const [slotsRes, limitsRes] = await Promise.all([
+      api('getAvailableSlots', { date: state.selectedDate, vehicleType: state.selectedVehicle }),
+      api('getMyLimits', { date: state.selectedDate })
+    ]);
 
-    if (!res.success) {
-      throw new Error(res.error || '슬롯 정보 로딩 실패');
-    }
+    if (!slotsRes.success) throw new Error(slotsRes.error || '슬롯 정보 로딩 실패');
 
-    state.slotData = res.data;
+    state.slotData = slotsRes.data;
+    state.myLimits = limitsRes.success ? limitsRes.data : null;
     renderStep3Grid(el);
   } catch (e) {
     el.innerHTML = `<div class="wizard-panel">
@@ -772,13 +725,38 @@ async function renderStep3(el) {
 function renderStep3Grid(el) {
   const data = state.slotData;
   const { matrix, timeSlots, dockCount, slotCount, available } = data;
+  const sm = data.slotMinutes || state.slotMinutes;
   const maxResvTime = data.maxResvTime || '';
 
-  // Build available set for quick lookup
+  // Limit info
+  let limitHtml = '';
+  if (state.myLimits) {
+    const lim = state.myLimits;
+    const parts = [];
+    if (lim.dailyTotal > 0) {
+      const remaining = lim.dailyTotal - lim.used.total;
+      const isOver = remaining <= 0;
+      parts.push(`하루 총 ${lim.dailyTotal}대 중 ${lim.used.total}대 사용 (잔여: ${remaining}대)`);
+      if (isOver) limitHtml = `<div class="limit-info over">하루 최대 입차대수를 초과했습니다. 예약이 불가합니다.</div>`;
+    }
+    if (lim.vehicleLimits && lim.vehicleLimits[state.selectedVehicle]) {
+      const vLim = lim.vehicleLimits[state.selectedVehicle];
+      const vUsed = lim.used.byVehicle[state.selectedVehicle] || 0;
+      parts.push(`${state.selectedVehicle}: ${vLim}대 중 ${vUsed}대 사용`);
+    }
+    if (lim.workTypeLimits && lim.workTypeLimits[state.selectedWorkType]) {
+      const wLim = lim.workTypeLimits[state.selectedWorkType];
+      const wUsed = lim.used.byWorkType[state.selectedWorkType] || 0;
+      parts.push(`${state.selectedWorkType}: ${wLim}대 중 ${wUsed}대 사용`);
+    }
+    if (!limitHtml && parts.length > 0) {
+      limitHtml = `<div class="limit-info">${parts.join(' | ')}</div>`;
+    }
+  }
+
   const availableSet = new Set();
   available.forEach(a => availableSet.add(`${a.time}_${a.dock}`));
 
-  // Build selected block set
   const selectedBlockSet = new Set();
   if (state.selectedTime && state.selectedDock) {
     const startIdx = timeSlots.indexOf(state.selectedTime);
@@ -787,7 +765,6 @@ function renderStep3Grid(el) {
     }
   }
 
-  // Build table
   let thead = '<tr><th class="time-label">시간</th>';
   for (let d = 1; d <= dockCount; d++) {
     thead += `<th>도크 ${d}</th>`;
@@ -805,13 +782,11 @@ function renderStep3Grid(el) {
       const isAvailableStart = availableSet.has(key);
       const isSelected = selectedBlockSet.has(key);
       const isSelectedStart = state.selectedTime === row.time && state.selectedDock === dockNum;
+      const isOverMaxTime = maxResvTime && row.time > maxResvTime;
 
       let btnClass = 'slot-btn';
       let btnText = '';
       let onclick = '';
-
-      // 최대예약시간 초과 여부 확인
-      const isOverMaxTime = maxResvTime && row.time > maxResvTime;
 
       if (isOverMaxTime && !isOccupied) {
         btnClass += ' occupied';
@@ -827,7 +802,6 @@ function renderStep3Grid(el) {
         btnClass += ' available';
         btnText = row.time;
         onclick = `onclick="selectSlot('${row.time}', ${dockNum})"`;
-        // Add hover highlight for multi-slot
         if (slotCount > 1) {
           onclick += ` onmouseenter="highlightBlock('${row.time}', ${dockNum}, true)" onmouseleave="highlightBlock('${row.time}', ${dockNum}, false)"`;
         }
@@ -842,10 +816,10 @@ function renderStep3Grid(el) {
   });
 
   const endTime = state.selectedTime
-    ? addMinutesToTime(state.selectedTime, slotCount * getSlotMinutes())
+    ? addMinutesToTime(state.selectedTime, slotCount * sm)
     : null;
   const selectionInfo = state.selectedTime && state.selectedDock
-    ? `<div class="slot-info" style="margin-bottom:16px;">선택: ${state.selectedDate} ${state.selectedTime} ~ ${endTime} / 도크 ${state.selectedDock} (${slotCount}슬롯)</div>`
+    ? `<div class="slot-info" style="margin-bottom:16px;">선택: ${state.selectedDate} ${state.selectedTime} ~ ${endTime} / 도크 ${state.selectedDock} (${slotCount}슬롯, ${slotCount * sm}분)</div>`
     : '';
 
   const canNext = state.selectedTime && state.selectedDock;
@@ -853,6 +827,7 @@ function renderStep3Grid(el) {
   el.innerHTML = `
     <div class="wizard-panel">
       <h3>시간/도크 선택 - ${state.selectedDate}</h3>
+      ${limitHtml}
       ${selectionInfo}
       <div class="table-wrap">
         <table class="slot-grid">
@@ -875,8 +850,7 @@ function selectSlot(time, dock) {
     state.selectedTime = time;
     state.selectedDock = dock;
   }
-  const el = document.getElementById('wizard-content');
-  renderStep3Grid(el);
+  renderStep3Grid(document.getElementById('wizard-content'));
 }
 
 function highlightBlock(startTime, dock, show) {
@@ -884,16 +858,11 @@ function highlightBlock(startTime, dock, show) {
   const { timeSlots, slotCount } = state.slotData;
   const startIdx = timeSlots.indexOf(startTime);
   if (startIdx === -1) return;
-
   for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
     const key = `${timeSlots[startIdx + k]}_${dock}`;
     const btn = document.querySelector(`[data-slot-key="${key}"]`);
     if (btn && !btn.classList.contains('selected') && !btn.classList.contains('occupied')) {
-      if (show) {
-        btn.classList.add('block-highlight');
-      } else {
-        btn.classList.remove('block-highlight');
-      }
+      btn.classList.toggle('block-highlight', show);
     }
   }
 }
@@ -901,7 +870,8 @@ function highlightBlock(startTime, dock, show) {
 // ---- Step 4: Confirm & Submit ----
 function renderStep4(el) {
   const slotCount = getVehicleSlotCount(state.selectedVehicle);
-  const endTime = addMinutesToTime(state.selectedTime, slotCount * getSlotMinutes());
+  const sm = getSlotMinutes();
+  const endTime = addMinutesToTime(state.selectedTime, slotCount * sm);
   const dateObj = new Date(state.selectedDate + 'T00:00:00');
   const dayName = getDayName(dateObj);
 
@@ -931,7 +901,7 @@ function renderStep4(el) {
         </div>
         <div class="summary-row">
           <div class="summary-label">소요슬롯</div>
-          <div class="summary-value">${slotCount}슬롯 (${slotCount * 30}분)</div>
+          <div class="summary-value">${slotCount}슬롯 (${slotCount * sm}분)</div>
         </div>
       </div>
       <div class="form-group" style="margin-top:20px;">
@@ -968,7 +938,6 @@ async function submitReservation() {
       return;
     }
 
-    // Show success
     const el = document.getElementById('wizard-content');
     el.innerHTML = `
       <div class="wizard-panel">
@@ -989,27 +958,17 @@ async function submitReservation() {
   }
 }
 
-function goToHistory() {
-  switchTab('history');
-}
-
-function resetAndRestart() {
-  resetWizard();
-  renderWizard();
-}
+function goToHistory() { switchTab('history'); }
+function resetAndRestart() { resetWizard(); renderWizard(); }
 
 let _navigating = false;
 function goToStep(step) {
-  if (_navigating) return; // 중복 클릭 방지
-
-  // Validation before advancing
+  if (_navigating) return;
   if (step > state.step) {
     if (state.step === 1 && (!state.selectedVehicle || !state.selectedWorkType)) return;
     if (state.step === 2 && !state.selectedDate) return;
     if (state.step === 3 && (!state.selectedTime || !state.selectedDock)) return;
   }
-
-  // Clear downstream selections when going back
   if (step <= 2) { state.selectedTime = null; state.selectedDock = null; state.slotData = null; }
   if (step <= 1) { state.selectedDate = null; }
 
@@ -1023,7 +982,6 @@ function goToStep(step) {
 // Reservations (History Tab)
 // ============================================================
 async function loadReservations() {
-  // Load reservations for a wide date range
   const today = new Date();
   const startDate = fmtDate(addDays(today, -90));
   const endDate = fmtDate(addDays(today, 90));
@@ -1032,12 +990,7 @@ async function loadReservations() {
     const res = await api('getReservations', { startDate, endDate });
     if (res.success) {
       state.reservations = res.data || [];
-      // Sort newest first by date+time
-      state.reservations.sort((a, b) => {
-        const da = a.date + a.startTime;
-        const db = b.date + b.startTime;
-        return db.localeCompare(da);
-      });
+      state.reservations.sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
     }
   } catch (e) {
     showToast('예약 목록 로딩 실패: ' + e.message, 'error');
@@ -1063,14 +1016,14 @@ function renderReservations() {
     return;
   }
 
+  const sm = getSlotMinutes();
   tbody.innerHTML = filtered.map(r => {
     const slotCount = getVehicleSlotCount(r.vehicleType);
-    const endTime = addMinutesToTime(r.startTime, slotCount * getSlotMinutes());
+    const endTime = addMinutesToTime(r.startTime, slotCount * sm);
     const cancelBtn = (r.status === '승인대기')
       ? `<button class="btn btn-danger btn-sm" onclick="cancelReservation('${r.reservationId}')">취소</button>`
       : '-';
     const badgeClass = `badge badge-${r.status}`;
-    const statusLabel = r.status;
 
     return `<tr>
       <td style="font-weight:600;">${r.reservationId}</td>
@@ -1079,7 +1032,7 @@ function renderReservations() {
       <td>${r.dock}번</td>
       <td>${r.vehicleType}</td>
       <td>${r.workType}</td>
-      <td><span class="${badgeClass}">${statusLabel}</span></td>
+      <td><span class="${badgeClass}">${r.status}</span></td>
       <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.memo || ''}">${r.memo || '-'}</td>
       <td>${cancelBtn}</td>
     </tr>`;
@@ -1088,13 +1041,8 @@ function renderReservations() {
 
 async function cancelReservation(reservationId) {
   if (!confirm('이 예약을 취소하시겠습니까?')) return;
-
   try {
-    const res = await apiPost('updateReservation', {
-      reservationId: reservationId,
-      status: '취소'
-    });
-
+    const res = await apiPost('updateReservation', { reservationId, status: '취소' });
     if (res.success) {
       showToast('예약이 취소되었습니다.', 'success');
       loadReservations();
