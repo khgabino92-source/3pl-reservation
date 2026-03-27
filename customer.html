@@ -905,6 +905,10 @@ function renderStep4(el) {
         </div>
       </div>
       <div class="form-group" style="margin-top:20px;">
+        <label>발주번호</label>
+        <input type="text" id="reservation-po" placeholder="발주번호를 입력하세요">
+      </div>
+      <div class="form-group">
         <label>메모 (선택사항)</label>
         <textarea id="reservation-memo" rows="3" placeholder="요청사항이나 메모를 입력하세요"></textarea>
       </div>
@@ -921,6 +925,7 @@ async function submitReservation() {
   btn.innerHTML = '<span class="loading-spinner"></span> 예약 중...';
 
   try {
+    const poNumber = document.getElementById('reservation-po').value.trim();
     const memo = document.getElementById('reservation-memo').value.trim();
     const res = await apiPost('createReservation', {
       date: state.selectedDate,
@@ -928,7 +933,8 @@ async function submitReservation() {
       dock: state.selectedDock,
       vehicleType: state.selectedVehicle,
       workType: state.selectedWorkType,
-      memo: memo
+      memo: memo,
+      poNumber: poNumber
     });
 
     if (!res.success) {

@@ -723,6 +723,7 @@ function renderCalendar() {
           tbodyHtml += `<div class="rsv-card status-${rsv.status}">`;
           tbodyHtml += `<span class="rsv-company">${escHtml(rsv.companyName)}</span>`;
           tbodyHtml += `<span class="rsv-info">${escHtml(rsv.vehicleType)} / ${escHtml(rsv.workType)}</span>`;
+          if (rsv.poNumber) tbodyHtml += `<span class="rsv-info">${escHtml(rsv.poNumber)}</span>`;
           tbodyHtml += `</div>`;
           tbodyHtml += '</td>';
         } else if (!cell) {
@@ -798,6 +799,7 @@ function showReservationDetail(reservationId) {
   html += `<div class="detail-row"><span class="detail-label">작업유형</span><span class="detail-value">${escHtml(rsv.workType)}</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">상태</span><span class="detail-value"><span class="badge" style="${getStatusBadgeStyle(rsv.status)}">${rsv.status}</span></span></div>`;
   html += `<div class="detail-row"><span class="detail-label">예약시간</span><span class="detail-value">${rsv.reservedAt || '-'}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">발주번호</span><span class="detail-value">${escHtml(rsv.poNumber) || '-'}</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">메모</span><span class="detail-value">${escHtml(rsv.memo) || '-'}</span></div>`;
 
   html += `<div class="modal-actions">`;
@@ -894,6 +896,7 @@ function showCreateModal(date, time, dock) {
   html += `<div class="form-group"><label>업체</label><select id="modal-company">${customerOptions}</select></div>`;
   html += `<div class="form-group"><label>차량유형</label><select id="modal-vehicle">${vehicleOptions}</select></div>`;
   html += `<div class="form-group"><label>작업유형</label><select id="modal-work">${workOptions}</select></div>`;
+  html += `<div class="form-group"><label>발주번호</label><input type="text" id="modal-po" placeholder="발주번호 입력"></div>`;
   html += `<div class="form-group"><label>메모</label><textarea id="modal-memo" rows="2" placeholder="메모 (선택사항)"></textarea></div>`;
   html += `<div class="modal-actions">`;
   html += `<button class="btn btn-primary btn-sm" onclick="submitCreateReservation('${date}','${time}',${dock})">등록</button>`;
@@ -931,6 +934,7 @@ async function submitCreateReservation(date, startTime, dock) {
   const companyName = companySelect.selectedOptions[0]?.dataset.name || '';
   const vehicleType = document.getElementById('modal-vehicle').value;
   const workType = document.getElementById('modal-work').value;
+  const poNumber = document.getElementById('modal-po').value.trim();
   const memo = document.getElementById('modal-memo').value.trim();
 
   if (!companyCode) { showToast('업체를 선택해주세요.', 'error'); return; }
@@ -938,7 +942,7 @@ async function submitCreateReservation(date, startTime, dock) {
 
   try {
     const res = await apiPost('createReservation', {
-      date, startTime, dock, companyCode, companyName, vehicleType, workType, memo
+      date, startTime, dock, companyCode, companyName, vehicleType, workType, memo, poNumber
     });
     if (res.success) {
       closeModal();
