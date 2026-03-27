@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3PL 입고예약 관리시스템</title>
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --card: #ffffff;
+    --border: #e4e8ef;
+    --text-primary: #1a202c;
+    --text-secondary: #6b7280;
+    --accent: #3b82f6;
+    --green: #10b981;
+    --red: #ef4444;
+    --orange: #f59e0b;
+    --amber: #f59e0b;
+    --purple: #8b5cf6;
+    --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text-primary); font-size: 14px; }
+
+  /* ---- Login Screen ---- */
+  .login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); }
+  .login-card { background: var(--card); border-radius: 16px; padding: 48px 40px; width: 400px; max-width: 90vw; border: 1px solid var(--border); box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .login-card h1 { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 8px; color: var(--text-primary); }
+  .login-card .subtitle { font-size: 13px; color: var(--text-secondary); text-align: center; margin-bottom: 32px; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; color: var(--text-primary); background: #fff; transition: border-color .15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { background: #059669; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-outline { background: #fff; color: var(--text-primary); border: 1px solid var(--border); }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+  .btn-block { width: 100%; justify-content: center; }
+  .login-error { color: var(--red); font-size: 12px; text-align: center; margin-top: 12px; min-height: 18px; }
+
+  /* ---- Header ---- */
+  header { background: #1e293b; color: #fff; padding: 18px 28px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .header-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  header .admin-name { font-size: 13px; color: #94a3b8; }
+  header .btn-logout { padding: 6px 14px; font-size: 12px; background: rgba(255,255,255,0.1); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; cursor: pointer; transition: all .15s; }
+  header .btn-logout:hover { background: rgba(255,255,255,0.2); }
+
+  /* ---- Tab Bar ---- */
+  .tab-bar { background: #1e293b; padding: 0 28px; display: flex; gap: 4px; border-top: 1px solid #334155; }
+  .tab-btn { padding: 12px 24px; font-size: 14px; font-weight: 600; border: none; background: none; cursor: pointer; color: #94a3b8; border-bottom: 3px solid transparent; transition: all .2s; }
+  .tab-btn.active { color: #fff; border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: #e2e8f0; }
+
+  /* ---- Container ---- */
+  .container { max-width: 1600px; margin: 0 auto; padding: 24px 28px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ---- Calendar Nav ---- */
+  .calendar-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .calendar-nav .week-label { font-size: 16px; font-weight: 700; min-width: 300px; text-align: center; }
+  .nav-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .15s; }
+  .nav-btn:hover { background: var(--bg); }
+  .nav-btn.today { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .nav-btn.today:hover { background: #2563eb; }
+
+  /* ---- Calendar Table ---- */
+  .calendar-wrapper { background: var(--card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+  .calendar-scroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 240px); }
+  .cal-table { border-collapse: collapse; font-size: 12px; width: max-content; min-width: 100%; }
+  .cal-table th, .cal-table td { border: 1px solid var(--border); padding: 0; text-align: center; vertical-align: top; }
+  .cal-table thead th { position: sticky; top: 0; background: #f8fafc; z-index: 10; padding: 0; }
+  .cal-table .col-time { width: 60px; min-width: 60px; position: sticky; left: 0; z-index: 5; background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 11px; padding: 4px 6px; }
+  .cal-table thead .col-time { z-index: 15; }
+  .cal-table .date-header { min-width: 110px; }
+  .cal-table .date-header-group { min-width: 220px; }
+  .date-title { font-size: 13px; font-weight: 700; padding: 8px 4px 2px; }
+  .date-title.today { color: var(--accent); }
+  .date-title.non-operating { color: var(--red); text-decoration: line-through; }
+  .date-meta { font-size: 10px; color: var(--text-secondary); padding: 2px 4px 4px; display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  .date-meta select { font-size: 10px; padding: 1px 2px; border: 1px solid var(--border); border-radius: 3px; background: #fff; cursor: pointer; }
+  .date-meta .cnt { font-weight: 600; }
+  .date-meta .cnt-pending { color: var(--amber); }
+  .date-meta .cnt-approved { color: var(--green); }
+  .dock-header { font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 6px 4px; min-width: 110px; width: 110px; }
+  .time-cell { background: #fff; min-height: 38px; height: 38px; cursor: pointer; transition: background .1s; position: relative; }
+  .time-cell:hover { background: #f0f7ff; }
+  .time-cell.non-operating { background: #f3f4f6; cursor: default; }
+  .time-cell.non-operating:hover { background: #f3f4f6; }
+
+  /* Reservation cards in cells */
+  .rsv-card { position: relative; margin: 1px; padding: 4px 6px; border-radius: 4px; font-size: 11px; line-height: 1.4; text-align: left; cursor: pointer; overflow: hidden; height: calc(100% - 2px); display: flex; flex-direction: column; justify-content: center; }
+  .rsv-card .rsv-company { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rsv-card .rsv-info { font-size: 10px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rsv-card.status-대기 { background: #fef3c7; border-left: 3px solid var(--amber); color: #92400e; }
+  .rsv-card.status-확정 { background: #d1fae5; border-left: 3px solid var(--green); color: #065f46; }
+  .rsv-card.status-완료 { background: #dbeafe; border-left: 3px solid var(--blue); color: #1d4ed8; }
+  .rsv-card.status-취소 { background: #fee2e2; border-left: 3px solid var(--red); color: #991b1b; text-decoration: line-through; opacity: 0.6; }
+
+  /* ---- Modal ---- */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--card); border-radius: 16px; padding: 32px; width: 480px; max-width: 90vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+  .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 24px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+  .modal .detail-row { display: flex; margin-bottom: 12px; }
+  .modal .detail-label { width: 90px; font-size: 12px; color: var(--text-secondary); font-weight: 600; flex-shrink: 0; padding-top: 2px; }
+  .modal .detail-value { font-size: 14px; }
+
+  /* ---- Customer Table ---- */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+  .section-header h2 { font-size: 16px; font-weight: 700; }
+  .search-input { padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; width: 260px; }
+  .search-input:focus { outline: none; border-color: var(--accent); }
+  .table-card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+  .table-wrap { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { position: sticky; top: 0; background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .data-table tr:hover td { background: #f8fafc; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-active { background: #d1fae5; color: #065f46; }
+  .badge-inactive { background: #fee2e2; color: #991b1b; }
+
+  /* ---- Settings ---- */
+  .settings-card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; }
+  .settings-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); display: inline-block; }
+  .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .settings-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+  .settings-table th { background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 11px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  .settings-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .settings-table input { width: 80px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; text-align: center; }
+  .settings-table input:focus { outline: none; border-color: var(--accent); }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 24px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 600; z-index: 2000; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+
+  .hidden { display: none !important; }
+
+  .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 768px) {
+    .container { padding: 16px; }
+    .calendar-nav .week-label { min-width: auto; font-size: 14px; }
+    .modal { padding: 24px; width: 95vw; }
+    .login-card { padding: 32px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== LOGIN SCREEN ========== -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <h1>3PL 입고예약 관리시스템</h1>
+    <p class="subtitle">관리자 로그인</p>
+    <div class="form-group">
+      <label>아이디</label>
+      <input type="text" id="login-id" placeholder="관리자 ID 입력" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>비밀번호</label>
+      <input type="password" id="login-pw" placeholder="비밀번호 입력" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()" id="login-btn">로그인</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ========== MAIN APP ========== -->
+<div id="app-screen" class="hidden">
+  <header>
+    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <h1>3PL 입고예약 관리시스템</h1>
+    <div class="header-right">
+      <span class="admin-name" id="admin-name"></span>
+      <button class="btn-logout" onclick="doLogout()">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="reservations" onclick="switchTab('reservations')">예약현황</button>
+    <button class="tab-btn" data-tab="customers" onclick="switchTab('customers')">고객사관리</button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">설정</button>
+  </div>
+
+  <!-- ===== TAB 1: 예약현황 ===== -->
+  <div class="tab-content active" id="tab-reservations">
+    <div class="container">
+      <div class="calendar-nav">
+        <button class="nav-btn" onclick="navigateWeek(-1)">&#9664; 이전주</button>
+        <button class="nav-btn today" onclick="navigateToday()">오늘</button>
+        <button class="nav-btn" onclick="navigateWeek(1)">다음주 &#9654;</button>
+        <div class="week-label" id="week-label"></div>
+      </div>
+      <div class="calendar-wrapper">
+        <div class="calendar-scroll" id="calendar-scroll">
+          <table class="cal-table" id="cal-table">
+            <thead id="cal-thead"></thead>
+            <tbody id="cal-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 2: 고객사관리 ===== -->
+  <div class="tab-content" id="tab-customers">
+    <div class="container">
+      <div class="section-header">
+        <h2>고객사 목록</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" class="search-input" id="customer-search" placeholder="업체코드 / 업체명 검색" oninput="renderCustomerTable()">
+          <button class="btn btn-primary btn-sm" onclick="showCustomerModal()">+ 신규 등록</button>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>업체코드</th>
+                <th>업체명</th>
+                <th>담당자명</th>
+                <th>연락처</th>
+                <th>상태</th>
+                <th>생성일</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="customer-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 3: 설정 ===== -->
+  <div class="tab-content" id="tab-settings">
+    <div class="container">
+      <div class="settings-card">
+        <h3>운영 시간 설정</h3>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label>운영시작</label>
+            <input type="time" id="setting-op-start" value="09:00">
+          </div>
+          <div class="form-group">
+            <label>운영종료</label>
+            <input type="time" id="setting-op-end" value="18:00">
+          </div>
+          <div class="form-group">
+            <label>도크 수</label>
+            <input type="number" id="setting-dock-count" min="1" max="20" value="2" style="width:100%;">
+          </div>
+        </div>
+      </div>
+      <div class="settings-card">
+        <h3>차량유형별 소요슬롯</h3>
+        <table class="settings-table" id="vehicle-settings-table">
+          <thead>
+            <tr><th>차량유형</th><th>소요슬롯 (30분 단위)</th></tr>
+          </thead>
+          <tbody id="vehicle-settings-tbody"></tbody>
+        </table>
+      </div>
+      <div style="text-align:right;margin-top:16px;">
+        <button class="btn btn-primary" onclick="saveSettings()" id="save-settings-btn">설정 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MODAL OVERLAY ========== -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOverlay(event)">
+  <div class="modal" id="modal-content" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- ========== TOAST ========== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// Configuration
+// ============================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbyDS2uiyFwkdv8z0U_C3gdX4Y8x-Yg5yymsBmbVngJC6pvymcHfsj8xrOqQP9Qbf1NJiQ/exec'; // <-- Apps Script 배포 후 웹앱 URL을 여기에 입력
+
+// ============================================================
+// State
+// ============================================================
+let state = {
+  token: sessionStorage.getItem('rsv_admin_token'),
+  user: JSON.parse(sessionStorage.getItem('rsv_admin_user') || 'null'),
+  weekStart: null,
+  settings: null,
+  schedule: {},
+  reservations: [],
+  customers: [],
+  vehicleSlotMap: {}
+};
+
+// ============================================================
+// Init
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  if (state.token && state.user) {
+    showApp();
+  } else {
+    showLogin();
+  }
+
+  // Enter key on login
+  document.getElementById('login-pw').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('login-id').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('login-pw').focus();
+  });
+});
+
+// ============================================================
+// Auth
+// ============================================================
+async function doLogin() {
+  const id = document.getElementById('login-id').value.trim();
+  const pw = document.getElementById('login-pw').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if (!id || !pw) { errEl.textContent = '아이디와 비밀번호를 입력해주세요.'; return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span> 로그인 중...';
+
+  try {
+    const res = await api('login', { userType: 'admin', id, password: pw });
+    if (!res.success) { errEl.textContent = res.error || '로그인 실패'; return; }
+    if (res.data.userType !== 'admin') { errEl.textContent = '관리자 계정이 아닙니다.'; return; }
+
+    state.token = res.data.token;
+    state.user = { userName: res.data.userName };
+    sessionStorage.setItem('rsv_admin_token', state.token);
+    sessionStorage.setItem('rsv_admin_user', JSON.stringify(state.user));
+    showApp();
+  } catch (e) {
+    errEl.textContent = '서버 연결 실패: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '로그인';
+  }
+}
+
+function doLogout() {
+  state.token = null;
+  state.user = null;
+  sessionStorage.removeItem('rsv_admin_token');
+  sessionStorage.removeItem('rsv_admin_user');
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('app-screen').classList.add('hidden');
+  document.getElementById('login-id').value = '';
+  document.getElementById('login-pw').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
+function showApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  document.getElementById('admin-name').textContent = state.user.userName + ' 님';
+
+  // Set week to current week
+  const today = new Date();
+  state.weekStart = getMonday(today);
+  loadCalendarData();
+}
+
+// ============================================================
+// API Layer
+// ============================================================
+async function api(action, params = {}) {
+  if (!API_URL) {
+    console.warn('API_URL이 설정되지 않았습니다.');
+    return { success: false, error: 'API_URL이 설정되지 않았습니다. admin.html 상단의 API_URL 값을 입력해주세요.' };
+  }
+  const url = new URL(API_URL);
+  url.searchParams.set('action', action);
+  if (state.token) url.searchParams.set('token', state.token);
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== null && v !== undefined) url.searchParams.set(k, v);
+  }
+  const resp = await fetch(url.toString());
+  const data = await resp.json();
+  if (!data.success && data.error && data.error.includes('expired')) {
+    doLogout();
+    showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+  }
+  return data;
+}
+
+async function apiPost(action, body = {}) {
+  if (!API_URL) {
+    console.warn('API_URL이 설정되지 않았습니다.');
+    return { success: false, error: 'API_URL이 설정되지 않았습니다. admin.html 상단의 API_URL 값을 입력해주세요.' };
+  }
+  body.action = action;
+  body.token = state.token;
+  const resp = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(body)
+  });
+  const data = await resp.json();
+  if (!data.success && data.error && data.error.includes('expired')) {
+    doLogout();
+    showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+  }
+  return data;
+}
+
+// ============================================================
+// Tab Navigation
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+
+  if (tab === 'reservations') loadCalendarData();
+  if (tab === 'customers') loadCustomers();
+  if (tab === 'settings') loadSettings();
+}
+
+// ============================================================
+// Date Utilities
+// ============================================================
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  date.setDate(diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function fmtDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function fmtDateShort(d) {
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+
+function getDayName(d) { return DAY_NAMES[d.getDay()]; }
+
+function isSameDate(a, b) { return fmtDate(a) === fmtDate(b); }
+
+// ============================================================
+// Week Navigation
+// ============================================================
+function navigateWeek(offset) {
+  state.weekStart = addDays(state.weekStart, offset * 7);
+  loadCalendarData();
+}
+
+function navigateToday() {
+  state.weekStart = getMonday(new Date());
+  loadCalendarData();
+}
+
+function updateWeekLabel() {
+  const sun = addDays(state.weekStart, 6);
+  const label = `${state.weekStart.getFullYear()}.${String(state.weekStart.getMonth() + 1).padStart(2, '0')}.${String(state.weekStart.getDate()).padStart(2, '0')} (${getDayName(state.weekStart)}) ~ ${sun.getFullYear()}.${String(sun.getMonth() + 1).padStart(2, '0')}.${String(sun.getDate()).padStart(2, '0')} (${getDayName(sun)})`;
+  document.getElementById('week-label').textContent = label;
+}
+
+// ============================================================
+// Calendar Data Loading
+// ============================================================
+async function loadCalendarData() {
+  updateWeekLabel();
+
+  const startDate = fmtDate(state.weekStart);
+  const endDate = fmtDate(addDays(state.weekStart, 6));
+
+  try {
+    const [settingsRes, scheduleRes, reservationsRes] = await Promise.all([
+      api('getSettings'),
+      api('getSchedule', { startDate, endDate }),
+      api('getReservations', { startDate, endDate })
+    ]);
+
+    if (settingsRes.success) {
+      state.settings = settingsRes.data;
+      state.vehicleSlotMap = {};
+      (settingsRes.data.vehicleTypes || []).forEach(v => {
+        state.vehicleSlotMap[v.vehicleType] = v.slotCount;
+      });
+    }
+
+    if (scheduleRes.success) {
+      state.schedule = {};
+      (scheduleRes.data || []).forEach(s => { state.schedule[s.date] = s; });
+    }
+
+    if (reservationsRes.success) {
+      state.reservations = reservationsRes.data || [];
+    }
+
+    renderCalendar();
+  } catch (e) {
+    console.error('Calendar load error:', e);
+    showToast('데이터 로딩 실패: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// Calendar Rendering
+// ============================================================
+function generateTimeSlots() {
+  const slots = [];
+  if (!state.settings) return slots;
+  const { operationStart, operationEnd } = state.settings.global;
+  const [sh, sm] = operationStart.split(':').map(Number);
+  const [eh, em] = operationEnd.split(':').map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
+  for (let m = startMin; m < endMin; m += 30) {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    slots.push(String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0'));
+  }
+  return slots;
+}
+
+function buildOccupancyMatrix(dateStr, reservations) {
+  const timeSlots = generateTimeSlots();
+  const dockCount = state.settings ? state.settings.global.dockCount : 2;
+  // matrix[slotIdx][dockIdx] = { reservation, isStart }  or null
+  const matrix = [];
+  for (let s = 0; s < timeSlots.length; s++) {
+    matrix[s] = [];
+    for (let d = 0; d < dockCount; d++) {
+      matrix[s][d] = null;
+    }
+  }
+
+  const dateReservations = reservations.filter(r => r.date === dateStr);
+
+  for (const rsv of dateReservations) {
+    const startIdx = timeSlots.indexOf(rsv.startTime);
+    if (startIdx === -1) continue;
+    const dockIdx = rsv.dock - 1;
+    if (dockIdx < 0 || dockIdx >= dockCount) continue;
+    const slotCount = state.vehicleSlotMap[rsv.vehicleType] || 1;
+
+    for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
+      matrix[startIdx + k][dockIdx] = {
+        reservation: rsv,
+        isStart: k === 0,
+        slotCount: slotCount
+      };
+    }
+  }
+
+  return matrix;
+}
+
+function renderCalendar() {
+  const timeSlots = generateTimeSlots();
+  const dockCount = state.settings ? state.settings.global.dockCount : 2;
+  const today = new Date();
+  const todayStr = fmtDate(today);
+
+  // Build dates array (7 days)
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    dates.push(addDays(state.weekStart, i));
+  }
+
+  // Build occupancy matrices per date
+  const matrices = {};
+  for (const d of dates) {
+    const ds = fmtDate(d);
+    matrices[ds] = buildOccupancyMatrix(ds, state.reservations);
+  }
+
+  // Count reservations per date
+  function countByDate(dateStr) {
+    const dateRsvs = state.reservations.filter(r => r.date === dateStr);
+    let pending = 0, approved = 0;
+    for (const r of dateRsvs) {
+      if (r.status === '대기') pending++;
+      else if (r.status === '확정') approved++;
+    }
+    return { pending, approved, total: dateRsvs.length };
+  }
+
+  // Check operating status
+  function isOperating(dateStr) {
+    const sched = state.schedule[dateStr];
+    if (sched) return sched.operating === '운영' || sched.operating === 'Y' || sched.operating === true || sched.operating === 'true';
+    // Default: weekdays = operating
+    const d = new Date(dateStr);
+    const day = d.getDay();
+    return day >= 1 && day <= 5;
+  }
+
+  // ---- THEAD ----
+  let theadHtml = '';
+
+  // Row 1: date group headers
+  theadHtml += '<tr>';
+  theadHtml += '<th class="col-time" rowspan="2">시간</th>';
+  for (const d of dates) {
+    const ds = fmtDate(d);
+    const isToday = ds === todayStr;
+    const operating = isOperating(ds);
+    const counts = countByDate(ds);
+    const dayLabel = `${d.getMonth() + 1}/${d.getDate()}(${getDayName(d)})`;
+    const titleClass = isToday ? 'today' : (!operating ? 'non-operating' : '');
+
+    theadHtml += `<th class="date-header-group" colspan="${dockCount}">`;
+    theadHtml += `<div class="date-title ${titleClass}">${dayLabel}</div>`;
+    theadHtml += `<div class="date-meta">`;
+    theadHtml += `<select onchange="toggleOperating('${ds}', this.value)" style="font-size:10px;">`;
+    theadHtml += `<option value="운영" ${operating ? 'selected' : ''}>운영</option>`;
+    theadHtml += `<option value="미운영" ${!operating ? 'selected' : ''}>미운영</option>`;
+    theadHtml += `</select>`;
+    theadHtml += ` <span class="cnt cnt-pending">대기:${counts.pending}</span>`;
+    theadHtml += ` <span class="cnt cnt-approved">확정:${counts.approved}</span>`;
+    theadHtml += `</div>`;
+    theadHtml += '</th>';
+  }
+  theadHtml += '</tr>';
+
+  // Row 2: dock headers
+  theadHtml += '<tr>';
+  for (const d of dates) {
+    for (let dk = 1; dk <= dockCount; dk++) {
+      theadHtml += `<th class="dock-header">도크${dk}</th>`;
+    }
+  }
+  theadHtml += '</tr>';
+
+  document.getElementById('cal-thead').innerHTML = theadHtml;
+
+  // ---- TBODY ----
+  // Track which cells to skip (due to rowspan)
+  // skipMap[slotIdx][globalColIdx] = true
+  const skipMap = {};
+  for (let s = 0; s < timeSlots.length; s++) skipMap[s] = {};
+
+  // Pre-calculate rowspans
+  const rowspanMap = {}; // `${slotIdx}-${globalCol}` => rowspan
+  for (let di = 0; di < dates.length; di++) {
+    const ds = fmtDate(dates[di]);
+    const matrix = matrices[ds];
+    for (let dk = 0; dk < dockCount; dk++) {
+      const globalCol = di * dockCount + dk;
+      for (let s = 0; s < timeSlots.length; s++) {
+        const cell = matrix[s] ? matrix[s][dk] : null;
+        if (cell && cell.isStart) {
+          const span = cell.slotCount;
+          rowspanMap[`${s}-${globalCol}`] = span;
+          for (let k = 1; k < span && (s + k) < timeSlots.length; k++) {
+            skipMap[s + k][globalCol] = true;
+          }
+        }
+      }
+    }
+  }
+
+  let tbodyHtml = '';
+  for (let s = 0; s < timeSlots.length; s++) {
+    tbodyHtml += '<tr>';
+    tbodyHtml += `<td class="col-time">${timeSlots[s]}</td>`;
+
+    for (let di = 0; di < dates.length; di++) {
+      const ds = fmtDate(dates[di]);
+      const matrix = matrices[ds];
+      const operating = isOperating(ds);
+
+      for (let dk = 0; dk < dockCount; dk++) {
+        const globalCol = di * dockCount + dk;
+
+        if (skipMap[s][globalCol]) continue;
+
+        const cell = matrix[s] ? matrix[s][dk] : null;
+        const rowspan = rowspanMap[`${s}-${globalCol}`] || 1;
+
+        if (!operating) {
+          tbodyHtml += `<td class="time-cell non-operating"${rowspan > 1 ? ` rowspan="${rowspan}"` : ''}></td>`;
+        } else if (cell && cell.isStart) {
+          const rsv = cell.reservation;
+          const statusClass = `status-${rsv.status}`;
+          tbodyHtml += `<td class="time-cell" rowspan="${rowspan}" onclick="showReservationDetail('${rsv.reservationId}')" style="padding:0;">`;
+          tbodyHtml += `<div class="rsv-card ${statusClass}">`;
+          tbodyHtml += `<span class="rsv-company">${escHtml(rsv.companyName)}</span>`;
+          tbodyHtml += `<span class="rsv-info">${escHtml(rsv.vehicleType)} / ${escHtml(rsv.workType)}</span>`;
+          tbodyHtml += `</div>`;
+          tbodyHtml += '</td>';
+        } else if (!cell) {
+          tbodyHtml += `<td class="time-cell" onclick="showCreateModal('${ds}','${timeSlots[s]}',${dk + 1})"></td>`;
+        } else {
+          // Occupied but not start (shouldn't happen without rowspan skip, but safety)
+          tbodyHtml += `<td class="time-cell"></td>`;
+        }
+      }
+    }
+
+    tbodyHtml += '</tr>';
+  }
+
+  document.getElementById('cal-tbody').innerHTML = tbodyHtml;
+}
+
+// ============================================================
+// Schedule Toggle
+// ============================================================
+async function toggleOperating(dateStr, value) {
+  try {
+    const res = await apiPost('updateSchedule', { date: dateStr, operating: value });
+    if (res.success) {
+      state.schedule[dateStr] = { date: dateStr, operating: value, note: '' };
+      renderCalendar();
+      showToast(`${dateStr} ${value} 설정 완료`, 'success');
+    } else {
+      showToast(res.error || '업데이트 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// Reservation Detail Modal
+// ============================================================
+function showReservationDetail(reservationId) {
+  const rsv = state.reservations.find(r => r.reservationId === reservationId);
+  if (!rsv) return;
+
+  const slotCount = state.vehicleSlotMap[rsv.vehicleType] || 1;
+  const [h, m] = rsv.startTime.split(':').map(Number);
+  const endMin = h * 60 + m + slotCount * 30;
+  const endTime = String(Math.floor(endMin / 60)).padStart(2, '0') + ':' + String(endMin % 60).padStart(2, '0');
+
+  const statusBadge = `<span class="badge badge-${rsv.status === '활성' || rsv.status === '확정' ? 'active' : (rsv.status === '취소' ? 'inactive' : 'active')}" style="${getStatusBadgeStyle(rsv.status)}">${rsv.status}</span>`;
+
+  let html = `<h2>예약 상세정보</h2>`;
+  html += `<div class="detail-row"><span class="detail-label">예약ID</span><span class="detail-value">${rsv.reservationId}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">날짜</span><span class="detail-value">${rsv.date}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">시간</span><span class="detail-value">${rsv.startTime} ~ ${endTime} (${slotCount}슬롯)</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">도크</span><span class="detail-value">도크${rsv.dock}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">업체</span><span class="detail-value">${escHtml(rsv.companyName)} (${escHtml(rsv.companyCode)})</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">차량유형</span><span class="detail-value">${escHtml(rsv.vehicleType)}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">작업유형</span><span class="detail-value">${escHtml(rsv.workType)}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">상태</span><span class="detail-value">${statusBadge}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">예약시간</span><span class="detail-value">${rsv.reservedAt || '-'}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">메모</span><span class="detail-value">${escHtml(rsv.memo) || '-'}</span></div>`;
+
+  html += `<div class="modal-actions">`;
+  if (rsv.status === '대기') {
+    html += `<button class="btn btn-success btn-sm" onclick="updateReservationStatus('${rsv.reservationId}','확정')">승인</button>`;
+    html += `<button class="btn btn-danger btn-sm" onclick="promptCancelReservation('${rsv.reservationId}')">취소</button>`;
+  }
+  if (rsv.status === '확정') {
+    html += `<button class="btn btn-primary btn-sm" onclick="updateReservationStatus('${rsv.reservationId}','완료')">완료</button>`;
+    html += `<button class="btn btn-danger btn-sm" onclick="promptCancelReservation('${rsv.reservationId}')">취소</button>`;
+  }
+  html += `<button class="btn btn-outline btn-sm" onclick="closeModal()">닫기</button>`;
+  html += `</div>`;
+
+  openModal(html);
+}
+
+function getStatusBadgeStyle(status) {
+  switch (status) {
+    case '대기': return 'background:#fef3c7;color:#92400e;';
+    case '확정': return 'background:#d1fae5;color:#065f46;';
+    case '완료': return 'background:#dbeafe;color:#1d4ed8;';
+    case '취소': return 'background:#fee2e2;color:#991b1b;';
+    default: return '';
+  }
+}
+
+async function updateReservationStatus(reservationId, newStatus) {
+  try {
+    const res = await apiPost('updateReservation', { reservationId, status: newStatus });
+    if (res.success) {
+      closeModal();
+      showToast(`예약 ${reservationId} 상태를 '${newStatus}'로 변경했습니다.`, 'success');
+      loadCalendarData();
+    } else {
+      showToast(res.error || '상태 변경 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+function promptCancelReservation(reservationId) {
+  const reason = prompt('취소 사유를 입력해주세요:');
+  if (reason === null) return;
+  cancelReservation(reservationId, reason);
+}
+
+async function cancelReservation(reservationId, reason) {
+  try {
+    const res = await apiPost('updateReservation', { reservationId, status: '취소', cancelReason: reason });
+    if (res.success) {
+      closeModal();
+      showToast(`예약 ${reservationId}이(가) 취소되었습니다.`, 'success');
+      loadCalendarData();
+    } else {
+      showToast(res.error || '취소 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// Create Reservation Modal
+// ============================================================
+function showCreateModal(date, time, dock) {
+  const customers = state.customers || [];
+  const vehicleTypes = state.settings ? state.settings.vehicleTypes : [];
+  const workTypes = ['입고', '반품입고', '기타'];
+
+  let customerOptions = '<option value="">-- 업체 선택 --</option>';
+  for (const c of customers) {
+    if (c.status === '활성') {
+      customerOptions += `<option value="${escAttr(c.companyCode)}" data-name="${escAttr(c.companyName)}">${escHtml(c.companyName)} (${escHtml(c.companyCode)})</option>`;
+    }
+  }
+
+  let vehicleOptions = '';
+  for (const v of vehicleTypes) {
+    vehicleOptions += `<option value="${escAttr(v.vehicleType)}">${escHtml(v.vehicleType)} (${v.slotCount}슬롯)</option>`;
+  }
+
+  let workOptions = '';
+  for (const w of workTypes) {
+    workOptions += `<option value="${escAttr(w)}">${escHtml(w)}</option>`;
+  }
+
+  let html = `<h2>예약 등록</h2>`;
+  html += `<div class="detail-row"><span class="detail-label">날짜</span><span class="detail-value">${date}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">시작시간</span><span class="detail-value">${time}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">도크</span><span class="detail-value">도크${dock}</span></div>`;
+  html += `<div class="form-group"><label>업체</label><select id="modal-company">${customerOptions}</select></div>`;
+  html += `<div class="form-group"><label>차량유형</label><select id="modal-vehicle">${vehicleOptions}</select></div>`;
+  html += `<div class="form-group"><label>작업유형</label><select id="modal-work">${workOptions}</select></div>`;
+  html += `<div class="form-group"><label>메모</label><textarea id="modal-memo" rows="2" placeholder="메모 (선택사항)"></textarea></div>`;
+  html += `<div class="modal-actions">`;
+  html += `<button class="btn btn-primary btn-sm" onclick="submitCreateReservation('${date}','${time}',${dock})">등록</button>`;
+  html += `<button class="btn btn-outline btn-sm" onclick="closeModal()">취소</button>`;
+  html += `</div>`;
+
+  // Ensure customers are loaded
+  if (customers.length === 0) {
+    loadCustomersForModal().then(() => {
+      const sel = document.getElementById('modal-company');
+      if (sel) {
+        let opts = '<option value="">-- 업체 선택 --</option>';
+        for (const c of state.customers) {
+          if (c.status === '활성') {
+            opts += `<option value="${escAttr(c.companyCode)}" data-name="${escAttr(c.companyName)}">${escHtml(c.companyName)} (${escHtml(c.companyCode)})</option>`;
+          }
+        }
+        sel.innerHTML = opts;
+      }
+    });
+  }
+
+  openModal(html);
+}
+
+async function loadCustomersForModal() {
+  try {
+    const res = await api('getCustomers');
+    if (res.success) state.customers = res.data || [];
+  } catch (e) { /* silent */ }
+}
+
+async function submitCreateReservation(date, startTime, dock) {
+  const companySelect = document.getElementById('modal-company');
+  const companyCode = companySelect.value;
+  const companyName = companySelect.selectedOptions[0]?.dataset.name || '';
+  const vehicleType = document.getElementById('modal-vehicle').value;
+  const workType = document.getElementById('modal-work').value;
+  const memo = document.getElementById('modal-memo').value.trim();
+
+  if (!companyCode) { showToast('업체를 선택해주세요.', 'error'); return; }
+  if (!vehicleType) { showToast('차량유형을 선택해주세요.', 'error'); return; }
+
+  try {
+    const res = await apiPost('createReservation', {
+      date, startTime, dock, companyCode, companyName, vehicleType, workType, memo
+    });
+    if (res.success) {
+      closeModal();
+      showToast('예약이 등록되었습니다.', 'success');
+      loadCalendarData();
+    } else {
+      showToast(res.error || '예약 등록 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// Customer Management (Tab 2)
+// ============================================================
+async function loadCustomers() {
+  try {
+    const res = await api('getCustomers');
+    if (res.success) {
+      state.customers = res.data || [];
+      renderCustomerTable();
+    } else {
+      showToast(res.error || '고객사 목록 로딩 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+function renderCustomerTable() {
+  const search = (document.getElementById('customer-search').value || '').toLowerCase();
+  const filtered = state.customers.filter(c =>
+    c.companyCode.toLowerCase().includes(search) ||
+    c.companyName.toLowerCase().includes(search)
+  );
+
+  let html = '';
+  if (filtered.length === 0) {
+    html = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:32px;">등록된 고객사가 없습니다.</td></tr>';
+  } else {
+    for (const c of filtered) {
+      const badgeClass = c.status === '활성' ? 'badge-active' : 'badge-inactive';
+      const toggleLabel = c.status === '활성' ? '비활성' : '활성';
+      html += `<tr>
+        <td>${escHtml(c.companyCode)}</td>
+        <td>${escHtml(c.companyName)}</td>
+        <td>${escHtml(c.contactName)}</td>
+        <td>${escHtml(c.phone)}</td>
+        <td><span class="badge ${badgeClass}">${escHtml(c.status)}</span></td>
+        <td>${escHtml(c.createdAt)}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="showEditCustomerModal('${escAttr(c.companyCode)}')" style="margin-right:4px;">수정</button>
+          <button class="btn btn-sm ${c.status === '활성' ? 'btn-danger' : 'btn-success'}" onclick="toggleCustomerStatus('${escAttr(c.companyCode)}','${toggleLabel}')">${toggleLabel}</button>
+        </td>
+      </tr>`;
+    }
+  }
+  document.getElementById('customer-tbody').innerHTML = html;
+}
+
+function showCustomerModal(customer) {
+  const isEdit = !!customer;
+  const title = isEdit ? '고객사 수정' : '신규 고객사 등록';
+
+  let html = `<h2>${title}</h2>`;
+  html += `<div class="form-group"><label>업체코드</label><input type="text" id="modal-cust-code" value="${isEdit ? escAttr(customer.companyCode) : ''}" ${isEdit ? 'readonly style="background:#f3f4f6;"' : 'placeholder="예: COMP001"'}></div>`;
+  html += `<div class="form-group"><label>업체명</label><input type="text" id="modal-cust-name" value="${isEdit ? escAttr(customer.companyName) : ''}" placeholder="업체명 입력"></div>`;
+  if (!isEdit) {
+    html += `<div class="form-group"><label>비밀번호</label><input type="text" id="modal-cust-pw" placeholder="초기 비밀번호 설정"></div>`;
+  }
+  html += `<div class="form-group"><label>담당자명</label><input type="text" id="modal-cust-contact" value="${isEdit ? escAttr(customer.contactName) : ''}" placeholder="담당자명 입력"></div>`;
+  html += `<div class="form-group"><label>연락처</label><input type="text" id="modal-cust-phone" value="${isEdit ? escAttr(customer.phone) : ''}" placeholder="010-0000-0000"></div>`;
+  html += `<div class="modal-actions">`;
+  html += `<button class="btn btn-primary btn-sm" onclick="${isEdit ? `submitEditCustomer('${escAttr(customer.companyCode)}')` : 'submitCreateCustomer()'}">${isEdit ? '수정' : '등록'}</button>`;
+  html += `<button class="btn btn-outline btn-sm" onclick="closeModal()">취소</button>`;
+  html += `</div>`;
+
+  openModal(html);
+}
+
+function showEditCustomerModal(companyCode) {
+  const customer = state.customers.find(c => c.companyCode === companyCode);
+  if (customer) showCustomerModal(customer);
+}
+
+async function submitCreateCustomer() {
+  const companyCode = document.getElementById('modal-cust-code').value.trim();
+  const companyName = document.getElementById('modal-cust-name').value.trim();
+  const password = document.getElementById('modal-cust-pw').value.trim();
+  const contactName = document.getElementById('modal-cust-contact').value.trim();
+  const phone = document.getElementById('modal-cust-phone').value.trim();
+
+  if (!companyCode || !companyName || !password) {
+    showToast('업체코드, 업체명, 비밀번호는 필수입니다.', 'error'); return;
+  }
+
+  try {
+    const res = await apiPost('createCustomer', { companyCode, companyName, password, contactName, phone });
+    if (res.success) {
+      closeModal();
+      showToast('고객사가 등록되었습니다.', 'success');
+      loadCustomers();
+    } else {
+      showToast(res.error || '등록 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+async function submitEditCustomer(companyCode) {
+  const companyName = document.getElementById('modal-cust-name').value.trim();
+  const contactName = document.getElementById('modal-cust-contact').value.trim();
+  const phone = document.getElementById('modal-cust-phone').value.trim();
+
+  if (!companyName) { showToast('업체명은 필수입니다.', 'error'); return; }
+
+  try {
+    const res = await apiPost('updateCustomer', {
+      companyCode,
+      fields: { companyName, contactName, phone }
+    });
+    if (res.success) {
+      closeModal();
+      showToast('고객사 정보가 수정되었습니다.', 'success');
+      loadCustomers();
+    } else {
+      showToast(res.error || '수정 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+async function toggleCustomerStatus(companyCode, newStatus) {
+  if (!confirm(`${companyCode} 업체를 '${newStatus}' 상태로 변경하시겠습니까?`)) return;
+
+  try {
+    const res = await apiPost('updateCustomer', {
+      companyCode,
+      fields: { status: newStatus }
+    });
+    if (res.success) {
+      showToast(`${companyCode} 상태를 '${newStatus}'로 변경했습니다.`, 'success');
+      loadCustomers();
+    } else {
+      showToast(res.error || '상태 변경 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// Settings (Tab 3)
+// ============================================================
+async function loadSettings() {
+  try {
+    const res = await api('getSettings');
+    if (!res.success) { showToast(res.error || '설정 로딩 실패', 'error'); return; }
+
+    state.settings = res.data;
+    const g = res.data.global;
+
+    document.getElementById('setting-op-start').value = g.operationStart || '09:00';
+    document.getElementById('setting-op-end').value = g.operationEnd || '18:00';
+    document.getElementById('setting-dock-count').value = g.dockCount || 2;
+
+    const defaultVehicles = [
+      { vehicleType: '1T', slotCount: 1 },
+      { vehicleType: '5T', slotCount: 2 },
+      { vehicleType: '11T', slotCount: 3 },
+      { vehicleType: '컨테이너 20FT', slotCount: 4 },
+      { vehicleType: '컨테이너 40FT', slotCount: 6 }
+    ];
+
+    const vehicles = res.data.vehicleTypes.length > 0 ? res.data.vehicleTypes : defaultVehicles;
+
+    let html = '';
+    for (const v of vehicles) {
+      html += `<tr>
+        <td>${escHtml(v.vehicleType)}</td>
+        <td><input type="number" min="1" max="20" value="${v.slotCount}" data-vehicle="${escAttr(v.vehicleType)}"></td>
+      </tr>`;
+    }
+    document.getElementById('vehicle-settings-tbody').innerHTML = html;
+
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+async function saveSettings() {
+  const operationStart = document.getElementById('setting-op-start').value;
+  const operationEnd = document.getElementById('setting-op-end').value;
+  const dockCount = parseInt(document.getElementById('setting-dock-count').value) || 2;
+
+  const rows = document.querySelectorAll('#vehicle-settings-tbody tr');
+  const settings = [];
+  rows.forEach((row, idx) => {
+    const vehicleType = row.querySelector('input').dataset.vehicle;
+    const slotCount = parseInt(row.querySelector('input').value) || 1;
+    const entry = { vehicleType, slotCount };
+    if (idx === 0) {
+      entry.operationStart = operationStart;
+      entry.operationEnd = operationEnd;
+      entry.dockCount = dockCount;
+    }
+    settings.push(entry);
+  });
+
+  const btn = document.getElementById('save-settings-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span> 저장 중...';
+
+  try {
+    const res = await apiPost('updateSettings', { settings });
+    if (res.success) {
+      showToast('설정이 저장되었습니다.', 'success');
+      // Reload settings into state
+      state.settings = {
+        global: { operationStart, operationEnd, dockCount },
+        vehicleTypes: settings.map(s => ({ vehicleType: s.vehicleType, slotCount: s.slotCount }))
+      };
+      state.vehicleSlotMap = {};
+      settings.forEach(s => { state.vehicleSlotMap[s.vehicleType] = s.slotCount; });
+    } else {
+      showToast(res.error || '저장 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '설정 저장';
+  }
+}
+
+// ============================================================
+// Modal Helpers
+// ============================================================
+function openModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+function closeModalOverlay(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ============================================================
+// Toast
+// ============================================================
+function showToast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  setTimeout(() => { el.classList.remove('show'); }, 3000);
+}
+
+// ============================================================
+// Utility
+// ============================================================
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escAttr(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+</script>
+</body>
+</html>

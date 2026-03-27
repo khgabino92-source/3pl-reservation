@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오늘의집 3PL 입고예약</title>
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --card: #ffffff;
+    --border: #e4e8ef;
+    --text-primary: #1a202c;
+    --text-secondary: #6b7280;
+    --accent: #3b82f6;
+    --green: #10b981;
+    --red: #ef4444;
+    --orange: #f59e0b;
+    --amber: #f59e0b;
+    --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text-primary); font-size: 14px; }
+
+  /* ---- Login Screen ---- */
+  .login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); }
+  .login-card { background: var(--card); border-radius: 16px; padding: 48px 40px; width: 400px; max-width: 90vw; border: 1px solid var(--border); box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .login-card h1 { font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 8px; color: var(--text-primary); }
+  .login-card .subtitle { font-size: 13px; color: var(--text-secondary); text-align: center; margin-bottom: 32px; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; color: var(--text-primary); background: #fff; transition: border-color .15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { background: #059669; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-outline { background: #fff; color: var(--text-primary); border: 1px solid var(--border); }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+  .btn-block { width: 100%; justify-content: center; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .login-error { color: var(--red); font-size: 12px; text-align: center; margin-top: 12px; min-height: 18px; }
+
+  /* ---- Header ---- */
+  header { background: #1e293b; color: #fff; padding: 18px 28px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .header-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  header .company-name { font-size: 13px; color: #94a3b8; }
+  header .btn-logout { padding: 6px 14px; font-size: 12px; background: rgba(255,255,255,0.1); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; cursor: pointer; transition: all .15s; }
+  header .btn-logout:hover { background: rgba(255,255,255,0.2); }
+
+  /* ---- Tab Bar ---- */
+  .tab-bar { background: #1e293b; padding: 0 28px; display: flex; gap: 4px; border-top: 1px solid #334155; }
+  .tab-btn { padding: 12px 24px; font-size: 14px; font-weight: 600; border: none; background: none; cursor: pointer; color: #94a3b8; border-bottom: 3px solid transparent; transition: all .2s; }
+  .tab-btn.active { color: #fff; border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: #e2e8f0; }
+
+  /* ---- Container ---- */
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 28px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .hidden { display: none !important; }
+
+  /* ---- Wizard ---- */
+  .wizard-progress { display: flex; align-items: center; margin-bottom: 28px; gap: 0; }
+  .wizard-step-indicator { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-secondary); padding: 8px 16px; border-radius: 8px; background: transparent; transition: all .2s; }
+  .wizard-step-indicator.active { color: var(--accent); background: #eff6ff; }
+  .wizard-step-indicator.done { color: var(--green); }
+  .wizard-step-indicator .step-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: #e5e7eb; color: var(--text-secondary); }
+  .wizard-step-indicator.active .step-num { background: var(--accent); color: #fff; }
+  .wizard-step-indicator.done .step-num { background: var(--green); color: #fff; }
+  .wizard-connector { width: 24px; height: 2px; background: #e5e7eb; flex-shrink: 0; }
+  .wizard-connector.done { background: var(--green); }
+
+  .wizard-panel { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 28px; }
+  .wizard-panel h3 { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+  .wizard-nav { display: flex; justify-content: space-between; margin-top: 24px; }
+
+  /* Vehicle / Work type cards */
+  .option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .option-card { padding: 16px 12px; border: 2px solid var(--border); border-radius: 10px; text-align: center; cursor: pointer; transition: all .15s; background: #fff; }
+  .option-card:hover { border-color: var(--accent); background: #f8faff; }
+  .option-card.selected { border-color: var(--accent); background: #eff6ff; }
+  .option-card .option-icon { font-size: 24px; margin-bottom: 6px; }
+  .option-card .option-label { font-size: 13px; font-weight: 600; }
+  .option-card .option-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+  .slot-info { background: #f0f7ff; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 8px; }
+
+  /* Calendar grid */
+  .date-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 8px; }
+  .date-cell { padding: 12px 8px; border: 2px solid var(--border); border-radius: 10px; text-align: center; cursor: pointer; transition: all .15s; background: #fff; min-height: 70px; }
+  .date-cell:hover:not(.disabled) { border-color: var(--accent); }
+  .date-cell.selected { border-color: var(--accent); background: #eff6ff; }
+  .date-cell.disabled { background: #f3f4f6; cursor: default; opacity: 0.6; }
+  .date-cell.available { border-color: var(--green); }
+  .date-cell.few-left { border-color: var(--orange); }
+  .date-cell .date-num { font-size: 16px; font-weight: 700; }
+  .date-cell .date-day { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .date-cell .date-status { font-size: 10px; margin-top: 4px; font-weight: 600; }
+  .date-cell .date-status.closed { color: var(--red); }
+  .date-cell .date-status.open { color: var(--green); }
+  .date-cell .date-status.few { color: var(--orange); }
+  .date-cell.sunday .date-num { color: var(--red); }
+  .date-cell.saturday .date-num { color: var(--accent); }
+  .week-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 8px; }
+  .week-header .wh { text-align: center; font-size: 12px; font-weight: 600; color: var(--text-secondary); padding: 4px; }
+  .week-header .wh.sun { color: var(--red); }
+  .week-header .wh.sat { color: var(--accent); }
+
+  /* Time/Dock grid */
+  .slot-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .slot-grid th { background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 12px; padding: 10px 14px; text-align: center; border-bottom: 1px solid var(--border); }
+  .slot-grid td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center; }
+  .slot-grid .time-label { font-weight: 600; color: var(--text-secondary); font-size: 12px; white-space: nowrap; width: 70px; }
+  .slot-btn { padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; width: 100%; transition: all .15s; }
+  .slot-btn.available { background: #d1fae5; color: #065f46; }
+  .slot-btn.available:hover { background: #a7f3d0; }
+  .slot-btn.occupied { background: #f3f4f6; color: #9ca3af; cursor: default; }
+  .slot-btn.selected { background: var(--accent); color: #fff; }
+  .slot-btn.block-highlight { background: #bfdbfe; color: #1e40af; }
+
+  /* Summary card */
+  .summary-card { background: #f8fafc; border-radius: 10px; border: 1px solid var(--border); padding: 24px; }
+  .summary-row { display: flex; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label { width: 110px; font-size: 13px; color: var(--text-secondary); font-weight: 600; flex-shrink: 0; }
+  .summary-value { font-size: 14px; font-weight: 500; }
+
+  .success-card { text-align: center; padding: 40px 20px; }
+  .success-icon { font-size: 48px; color: var(--green); margin-bottom: 16px; }
+  .success-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .success-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
+
+  /* ---- Table ---- */
+  .table-card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+  .table-wrap { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { position: sticky; top: 0; background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .data-table tr:hover td { background: #f8fafc; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-대기 { background: #fef3c7; color: #92400e; }
+  .badge-승인, .badge-확정 { background: #d1fae5; color: #065f46; }
+  .badge-완료 { background: #dbeafe; color: #1d4ed8; }
+  .badge-취소 { background: #fee2e2; color: #991b1b; }
+
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-btn { padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-secondary); transition: all .15s; }
+  .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .filter-btn:hover:not(.active) { background: var(--bg); }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-secondary); font-size: 14px; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 24px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 600; z-index: 2000; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+
+  .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 768px) {
+    .container { padding: 16px; }
+    header { padding: 14px 16px; }
+    header h1 { font-size: 15px; }
+    .tab-bar { padding: 0 16px; }
+    .tab-btn { padding: 10px 16px; font-size: 13px; }
+    .login-card { padding: 32px 24px; }
+    .wizard-panel { padding: 20px; }
+    .option-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    .date-grid { grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .date-cell { padding: 8px 4px; min-height: 56px; }
+    .date-cell .date-num { font-size: 14px; }
+    .wizard-progress { overflow-x: auto; flex-wrap: nowrap; }
+    .wizard-step-indicator { padding: 6px 10px; font-size: 11px; white-space: nowrap; }
+    .summary-label { width: 90px; }
+  }
+
+  @media (max-width: 480px) {
+    .date-grid { gap: 3px; }
+    .date-cell { padding: 6px 2px; min-height: 48px; border-width: 1px; border-radius: 6px; }
+    .date-cell .date-num { font-size: 12px; }
+    .date-cell .date-day { font-size: 9px; }
+    .date-cell .date-status { font-size: 8px; }
+    .option-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+    .wizard-connector { width: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== LOGIN SCREEN ========== -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <h1>오늘의집 3PL 입고예약 시스템</h1>
+    <p class="subtitle">업체 로그인</p>
+    <div class="form-group">
+      <label>업체코드</label>
+      <input type="text" id="login-id" placeholder="업체코드 입력" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>비밀번호</label>
+      <input type="password" id="login-pw" placeholder="비밀번호 입력" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()" id="login-btn">로그인</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ========== MAIN APP ========== -->
+<div id="app-screen" class="hidden">
+  <header>
+    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <h1>오늘의집 3PL 입고예약</h1>
+    <div class="header-right">
+      <span class="company-name" id="company-name"></span>
+      <button class="btn-logout" onclick="doLogout()">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="reserve" onclick="switchTab('reserve')">예약하기</button>
+    <button class="tab-btn" data-tab="history" onclick="switchTab('history')">내 예약현황</button>
+  </div>
+
+  <!-- ===== TAB 1: 예약하기 ===== -->
+  <div class="tab-content active" id="tab-reserve">
+    <div class="container">
+      <div class="wizard-progress" id="wizard-progress"></div>
+      <div id="wizard-content"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 2: 내 예약현황 ===== -->
+  <div class="tab-content" id="tab-history">
+    <div class="container">
+      <div class="filter-bar" id="filter-bar">
+        <button class="filter-btn active" data-status="전체" onclick="setFilter('전체')">전체</button>
+        <button class="filter-btn" data-status="대기" onclick="setFilter('대기')">대기</button>
+        <button class="filter-btn" data-status="확정" onclick="setFilter('확정')">승인</button>
+        <button class="filter-btn" data-status="완료" onclick="setFilter('완료')">완료</button>
+        <button class="filter-btn" data-status="취소" onclick="setFilter('취소')">취소</button>
+      </div>
+      <div class="table-card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>예약ID</th>
+                <th>날짜</th>
+                <th>시간</th>
+                <th>도크</th>
+                <th>차량유형</th>
+                <th>작업유형</th>
+                <th>상태</th>
+                <th>메모</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TOAST ========== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// Configuration
+// ============================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbyDS2uiyFwkdv8z0U_C3gdX4Y8x-Yg5yymsBmbVngJC6pvymcHfsj8xrOqQP9Qbf1NJiQ/exec'; // <-- Apps Script 배포 후 웹앱 URL을 여기에 입력
+
+// ============================================================
+// State
+// ============================================================
+let state = {
+  token: sessionStorage.getItem('rsv_cust_token'),
+  user: JSON.parse(sessionStorage.getItem('rsv_cust_user') || 'null'),
+  settings: null,
+  // Wizard state
+  step: 1,
+  selectedVehicle: null,
+  selectedWorkType: null,
+  selectedDate: null,
+  selectedTime: null,
+  selectedDock: null,
+  availableSlots: null,
+  slotData: null,
+  // Schedule data for calendar
+  scheduleMap: {},
+  // Reservations
+  reservations: [],
+  filterStatus: '전체'
+};
+
+const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+const WIZARD_STEPS = [
+  { num: 1, label: '차량/작업 선택' },
+  { num: 2, label: '날짜 선택' },
+  { num: 3, label: '시간/도크 선택' },
+  { num: 4, label: '확인 및 예약' }
+];
+
+// ============================================================
+// Init
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  if (state.token && state.user) {
+    showApp();
+  } else {
+    showLogin();
+  }
+  document.getElementById('login-pw').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('login-id').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('login-pw').focus();
+  });
+});
+
+// ============================================================
+// Auth
+// ============================================================
+async function doLogin() {
+  const id = document.getElementById('login-id').value.trim();
+  const pw = document.getElementById('login-pw').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if (!id || !pw) { errEl.textContent = '업체코드와 비밀번호를 입력해주세요.'; return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span> 로그인 중...';
+
+  try {
+    const res = await api('login', { userType: 'customer', id, password: pw });
+    if (!res.success) { errEl.textContent = res.error || '로그인 실패'; return; }
+    if (res.data.userType !== 'customer') { errEl.textContent = '업체 계정이 아닙니다.'; return; }
+
+    state.token = res.data.token;
+    state.user = { userName: res.data.userName, companyCode: id };
+    sessionStorage.setItem('rsv_cust_token', state.token);
+    sessionStorage.setItem('rsv_cust_user', JSON.stringify(state.user));
+    showApp();
+  } catch (e) {
+    errEl.textContent = '서버 연결 실패: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '로그인';
+  }
+}
+
+function doLogout() {
+  state.token = null;
+  state.user = null;
+  sessionStorage.removeItem('rsv_cust_token');
+  sessionStorage.removeItem('rsv_cust_user');
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('app-screen').classList.add('hidden');
+  document.getElementById('login-id').value = '';
+  document.getElementById('login-pw').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
+function showApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  document.getElementById('company-name').textContent = state.user.userName + ' (' + state.user.companyCode + ')';
+  loadSettings().then(() => {
+    resetWizard();
+    renderWizard();
+  });
+}
+
+// ============================================================
+// API Layer
+// ============================================================
+async function api(action, params = {}) {
+  if (!API_URL) {
+    console.warn('API_URL이 설정되지 않았습니다.');
+    return { success: false, error: 'API_URL이 설정되지 않았습니다. customer.html 상단의 API_URL 값을 입력해주세요.' };
+  }
+  const url = new URL(API_URL);
+  url.searchParams.set('action', action);
+  if (state.token) url.searchParams.set('token', state.token);
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== null && v !== undefined) url.searchParams.set(k, v);
+  }
+  const resp = await fetch(url.toString());
+  const data = await resp.json();
+  if (!data.success && data.error && data.error.includes('expired')) {
+    doLogout();
+    showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+  }
+  return data;
+}
+
+async function apiPost(action, body = {}) {
+  if (!API_URL) {
+    console.warn('API_URL이 설정되지 않았습니다.');
+    return { success: false, error: 'API_URL이 설정되지 않았습니다. customer.html 상단의 API_URL 값을 입력해주세요.' };
+  }
+  body.action = action;
+  body.token = state.token;
+  const resp = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(body)
+  });
+  const data = await resp.json();
+  if (!data.success && data.error && data.error.includes('expired')) {
+    doLogout();
+    showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+  }
+  return data;
+}
+
+// ============================================================
+// Tab Navigation
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+
+  if (tab === 'reserve') {
+    resetWizard();
+    renderWizard();
+  }
+  if (tab === 'history') loadReservations();
+}
+
+// ============================================================
+// Settings
+// ============================================================
+async function loadSettings() {
+  try {
+    const res = await api('getSettings');
+    if (res.success) {
+      state.settings = res.data;
+    }
+  } catch (e) {
+    console.error('Settings load error:', e);
+  }
+}
+
+function getVehicleSlotCount(vehicleType) {
+  if (!state.settings || !state.settings.vehicleTypes) return 1;
+  const v = state.settings.vehicleTypes.find(vt => vt.vehicleType === vehicleType);
+  return v ? v.slotCount : 1;
+}
+
+function getSlotMinutes() {
+  return 30; // Each slot is 30 minutes
+}
+
+// ============================================================
+// Date Utilities
+// ============================================================
+function fmtDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function getDayName(d) { return DAY_NAMES[d.getDay()]; }
+
+function addMinutesToTime(timeStr, minutes) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const total = h * 60 + m + minutes;
+  const hh = String(Math.floor(total / 60)).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+// ============================================================
+// Wizard
+// ============================================================
+function resetWizard() {
+  state.step = 1;
+  state.selectedVehicle = null;
+  state.selectedWorkType = null;
+  state.selectedDate = null;
+  state.selectedTime = null;
+  state.selectedDock = null;
+  state.availableSlots = null;
+  state.slotData = null;
+}
+
+function renderWizardProgress() {
+  const el = document.getElementById('wizard-progress');
+  let html = '';
+  WIZARD_STEPS.forEach((s, idx) => {
+    const cls = s.num === state.step ? 'active' : (s.num < state.step ? 'done' : '');
+    html += `<div class="wizard-step-indicator ${cls}">
+      <span class="step-num">${s.num < state.step ? '&#10003;' : s.num}</span>
+      <span>${s.label}</span>
+    </div>`;
+    if (idx < WIZARD_STEPS.length - 1) {
+      html += `<div class="wizard-connector ${s.num < state.step ? 'done' : ''}"></div>`;
+    }
+  });
+  el.innerHTML = html;
+}
+
+function renderWizard() {
+  renderWizardProgress();
+  const el = document.getElementById('wizard-content');
+
+  switch (state.step) {
+    case 1: renderStep1(el); break;
+    case 2: renderStep2(el); break;
+    case 3: renderStep3(el); break;
+    case 4: renderStep4(el); break;
+  }
+}
+
+// ---- Step 1: Vehicle / Work type ----
+function renderStep1(el) {
+  const vehicles = (state.settings && state.settings.vehicleTypes) || [];
+  const vehicleIcons = {
+    '1T': '&#x1F69A;', '5T': '&#x1F69B;', '11T': '&#x1F69B;',
+    '컨테이너 20FT': '&#x1F4E6;', '컨테이너 40FT': '&#x1F4E6;'
+  };
+  const workTypes = ['수작업', '파렛트'];
+  const workIcons = { '수작업': '&#x1F44B;', '파렛트': '&#x1F4E5;' };
+
+  let vehicleCards = '';
+  vehicles.forEach(v => {
+    const icon = vehicleIcons[v.vehicleType] || '&#x1F69A;';
+    const sel = state.selectedVehicle === v.vehicleType ? 'selected' : '';
+    vehicleCards += `<div class="option-card ${sel}" onclick="selectVehicle('${v.vehicleType}')">
+      <div class="option-icon">${icon}</div>
+      <div class="option-label">${v.vehicleType}</div>
+      <div class="option-sub">${v.slotCount}슬롯 (${v.slotCount * 30}분)</div>
+    </div>`;
+  });
+
+  let workCards = '';
+  workTypes.forEach(w => {
+    const icon = workIcons[w] || '';
+    const sel = state.selectedWorkType === w ? 'selected' : '';
+    workCards += `<div class="option-card ${sel}" onclick="selectWorkType('${w}')">
+      <div class="option-icon">${icon}</div>
+      <div class="option-label">${w}</div>
+    </div>`;
+  });
+
+  const slotCount = state.selectedVehicle ? getVehicleSlotCount(state.selectedVehicle) : null;
+  const slotInfo = slotCount ? `<div class="slot-info">소요시간: ${slotCount}슬롯 (${slotCount * 30}분)</div>` : '';
+
+  const canNext = state.selectedVehicle && state.selectedWorkType;
+
+  el.innerHTML = `
+    <div class="wizard-panel">
+      <h3>차량유형 선택</h3>
+      <div class="option-grid">${vehicleCards}</div>
+      ${slotInfo}
+      <h3 style="margin-top:24px;">작업유형 선택</h3>
+      <div class="option-grid">${workCards}</div>
+      <div class="wizard-nav">
+        <div></div>
+        <button class="btn btn-primary" ${canNext ? '' : 'disabled'} onclick="goToStep(2)">다음 &raquo;</button>
+      </div>
+    </div>`;
+}
+
+function selectVehicle(type) {
+  state.selectedVehicle = type;
+  renderWizard();
+}
+
+function selectWorkType(type) {
+  state.selectedWorkType = type;
+  renderWizard();
+}
+
+// ---- Step 2: Date selection ----
+let _step2RequestId = 0; // 비동기 렌더링 충돌 방지
+
+async function renderStep2(el) {
+  const requestId = ++_step2RequestId;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const thisMonday = getMonday(today);
+  const nextSunday = addDays(thisMonday, 13);
+  const startDate = fmtDate(thisMonday);
+  const endDate = fmtDate(nextSunday);
+
+  el.innerHTML = `<div class="wizard-panel">
+    <h3>날짜 선택</h3>
+    <div style="text-align:center;padding:24px;color:var(--text-secondary);">날짜 정보를 불러오는 중...</div>
+    <div class="wizard-nav">
+      <button class="btn btn-outline" onclick="goToStep(1)">&laquo; 이전</button>
+      <button class="btn btn-primary" disabled>다음 &raquo;</button>
+    </div>
+  </div>`;
+
+  try {
+    // 스케줄만 1회 호출 (14번 호출 제거 → 속도 개선)
+    const scheduleRes = await api('getSchedule', { startDate, endDate });
+    if (requestId !== _step2RequestId) return; // 이미 다른 스텝으로 이동함
+
+    state.scheduleMap = {};
+    if (scheduleRes.success) {
+      (scheduleRes.data || []).forEach(s => { state.scheduleMap[s.date || s['날짜']] = s; });
+    }
+
+    renderStep2Calendar(el, thisMonday);
+  } catch (e) {
+    if (requestId !== _step2RequestId) return;
+    el.innerHTML = `<div class="wizard-panel">
+      <h3>날짜 선택</h3>
+      <div style="text-align:center;padding:24px;color:var(--red);">데이터 로딩 실패: ${e.message}</div>
+      <div class="wizard-nav">
+        <button class="btn btn-outline" onclick="goToStep(1)">&laquo; 이전</button>
+        <button class="btn btn-primary" disabled>다음 &raquo;</button>
+      </div>
+    </div>`;
+  }
+}
+
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  date.setDate(diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function renderStep2Calendar(el, startMonday) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+  let weekHeader = '<div class="week-header">';
+  dayLabels.forEach((d, i) => {
+    const cls = i === 6 ? 'sun' : (i === 5 ? 'sat' : '');
+    weekHeader += `<div class="wh ${cls}">${d}</div>`;
+  });
+  weekHeader += '</div>';
+
+  let dateGrid = '<div class="date-grid">';
+  for (let i = 0; i < 14; i++) {
+    const d = addDays(startMonday, i);
+    const dateStr = fmtDate(d);
+    const dayOfWeek = d.getDay();
+    const isPast = d < today;
+    const schedule = state.scheduleMap[dateStr];
+    // 운영여부: 'N', 'n', false 등 모두 미운영 처리. 스케줄 없으면 운영으로 간주 (일요일 제외)
+    const isSunday = dayOfWeek === 0;
+    const opValue = schedule ? String(schedule.operating || schedule['운영여부'] || '').toLowerCase() : '';
+    const isNonOperating = isSunday || opValue === 'n' || opValue === '미운영' || opValue === 'false' || opValue === '0';
+    const isDisabled = isPast || isNonOperating;
+    const isSelected = state.selectedDate === dateStr;
+
+    let cls = 'date-cell';
+    if (isDisabled) cls += ' disabled';
+    else if (isSelected) cls += ' selected';
+    else cls += ' available';
+
+    if (dayOfWeek === 0) cls += ' sunday';
+    if (dayOfWeek === 6) cls += ' saturday';
+
+    let statusHtml = '';
+    if (isNonOperating) {
+      statusHtml = '<div class="date-status closed">운영안함</div>';
+    } else if (isPast) {
+      statusHtml = '<div class="date-status closed">지난 날짜</div>';
+    } else {
+      statusHtml = '<div class="date-status open">예약가능</div>';
+    }
+
+    const onclick = isDisabled ? '' : `onclick="selectDate('${dateStr}')"`;
+
+    dateGrid += `<div class="${cls}" ${onclick}>
+      <div class="date-num">${d.getDate()}</div>
+      <div class="date-day">${getDayName(d)}</div>
+      ${statusHtml}
+    </div>`;
+  }
+  dateGrid += '</div>';
+
+  const canNext = !!state.selectedDate;
+
+  el.innerHTML = `
+    <div class="wizard-panel">
+      <h3>날짜 선택</h3>
+      ${weekHeader}
+      ${dateGrid}
+      <div class="wizard-nav">
+        <button class="btn btn-outline" onclick="goToStep(1)">&laquo; 이전</button>
+        <button class="btn btn-primary" ${canNext ? '' : 'disabled'} onclick="goToStep(3)">다음 &raquo;</button>
+      </div>
+    </div>`;
+}
+
+function selectDate(dateStr) {
+  state.selectedDate = dateStr;
+  state.selectedTime = null;
+  state.selectedDock = null;
+  // API 호출 없이 즉시 렌더링
+  const el = document.getElementById('wizard-content');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const thisMonday = getMonday(today);
+  renderStep2Calendar(el, thisMonday);
+}
+
+// ---- Step 3: Time/Dock selection ----
+async function renderStep3(el) {
+  el.innerHTML = `<div class="wizard-panel">
+    <h3>시간/도크 선택 - ${state.selectedDate}</h3>
+    <div style="text-align:center;padding:24px;color:var(--text-secondary);">슬롯 정보를 불러오는 중...</div>
+    <div class="wizard-nav">
+      <button class="btn btn-outline" onclick="goToStep(2)">&laquo; 이전</button>
+      <button class="btn btn-primary" disabled>다음 &raquo;</button>
+    </div>
+  </div>`;
+
+  try {
+    const res = await api('getAvailableSlots', {
+      date: state.selectedDate,
+      vehicleType: state.selectedVehicle
+    });
+
+    if (!res.success) {
+      throw new Error(res.error || '슬롯 정보 로딩 실패');
+    }
+
+    state.slotData = res.data;
+    renderStep3Grid(el);
+  } catch (e) {
+    el.innerHTML = `<div class="wizard-panel">
+      <h3>시간/도크 선택 - ${state.selectedDate}</h3>
+      <div style="text-align:center;padding:24px;color:var(--red);">오류: ${e.message}</div>
+      <div class="wizard-nav">
+        <button class="btn btn-outline" onclick="goToStep(2)">&laquo; 이전</button>
+        <button class="btn btn-primary" disabled>다음 &raquo;</button>
+      </div>
+    </div>`;
+  }
+}
+
+function renderStep3Grid(el) {
+  const data = state.slotData;
+  const { matrix, timeSlots, dockCount, slotCount, available } = data;
+
+  // Build available set for quick lookup
+  const availableSet = new Set();
+  available.forEach(a => availableSet.add(`${a.time}_${a.dock}`));
+
+  // Build selected block set
+  const selectedBlockSet = new Set();
+  if (state.selectedTime && state.selectedDock) {
+    const startIdx = timeSlots.indexOf(state.selectedTime);
+    for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
+      selectedBlockSet.add(`${timeSlots[startIdx + k]}_${state.selectedDock}`);
+    }
+  }
+
+  // Build table
+  let thead = '<tr><th class="time-label">시간</th>';
+  for (let d = 1; d <= dockCount; d++) {
+    thead += `<th>도크 ${d}</th>`;
+  }
+  thead += '</tr>';
+
+  let tbody = '';
+  matrix.forEach((row, sIdx) => {
+    tbody += '<tr>';
+    tbody += `<td class="time-label">${row.time}</td>`;
+    for (let d = 0; d < dockCount; d++) {
+      const dockNum = d + 1;
+      const key = `${row.time}_${dockNum}`;
+      const isOccupied = row.docks[d] !== null;
+      const isAvailableStart = availableSet.has(key);
+      const isSelected = selectedBlockSet.has(key);
+      const isSelectedStart = state.selectedTime === row.time && state.selectedDock === dockNum;
+
+      let btnClass = 'slot-btn';
+      let btnText = '';
+      let onclick = '';
+
+      if (isSelected) {
+        btnClass += ' selected';
+        btnText = isSelectedStart ? row.time : '';
+        onclick = `onclick="selectSlot('${row.time}', ${dockNum})"`;
+      } else if (isOccupied) {
+        btnClass += ' occupied';
+        btnText = '예약됨';
+      } else if (isAvailableStart) {
+        btnClass += ' available';
+        btnText = row.time;
+        onclick = `onclick="selectSlot('${row.time}', ${dockNum})"`;
+        // Add hover highlight for multi-slot
+        if (slotCount > 1) {
+          onclick += ` onmouseenter="highlightBlock('${row.time}', ${dockNum}, true)" onmouseleave="highlightBlock('${row.time}', ${dockNum}, false)"`;
+        }
+      } else {
+        btnClass += ' occupied';
+        btnText = isOccupied ? '예약됨' : '-';
+      }
+
+      tbody += `<td><button class="${btnClass}" ${onclick} data-slot-key="${key}">${btnText}</button></td>`;
+    }
+    tbody += '</tr>';
+  });
+
+  const endTime = state.selectedTime
+    ? addMinutesToTime(state.selectedTime, slotCount * getSlotMinutes())
+    : null;
+  const selectionInfo = state.selectedTime && state.selectedDock
+    ? `<div class="slot-info" style="margin-bottom:16px;">선택: ${state.selectedDate} ${state.selectedTime} ~ ${endTime} / 도크 ${state.selectedDock} (${slotCount}슬롯)</div>`
+    : '';
+
+  const canNext = state.selectedTime && state.selectedDock;
+
+  el.innerHTML = `
+    <div class="wizard-panel">
+      <h3>시간/도크 선택 - ${state.selectedDate}</h3>
+      ${selectionInfo}
+      <div class="table-wrap">
+        <table class="slot-grid">
+          <thead>${thead}</thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
+      <div class="wizard-nav">
+        <button class="btn btn-outline" onclick="goToStep(2)">&laquo; 이전</button>
+        <button class="btn btn-primary" ${canNext ? '' : 'disabled'} onclick="goToStep(4)">다음 &raquo;</button>
+      </div>
+    </div>`;
+}
+
+function selectSlot(time, dock) {
+  if (state.selectedTime === time && state.selectedDock === dock) {
+    state.selectedTime = null;
+    state.selectedDock = null;
+  } else {
+    state.selectedTime = time;
+    state.selectedDock = dock;
+  }
+  const el = document.getElementById('wizard-content');
+  renderStep3Grid(el);
+}
+
+function highlightBlock(startTime, dock, show) {
+  if (!state.slotData) return;
+  const { timeSlots, slotCount } = state.slotData;
+  const startIdx = timeSlots.indexOf(startTime);
+  if (startIdx === -1) return;
+
+  for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
+    const key = `${timeSlots[startIdx + k]}_${dock}`;
+    const btn = document.querySelector(`[data-slot-key="${key}"]`);
+    if (btn && !btn.classList.contains('selected') && !btn.classList.contains('occupied')) {
+      if (show) {
+        btn.classList.add('block-highlight');
+      } else {
+        btn.classList.remove('block-highlight');
+      }
+    }
+  }
+}
+
+// ---- Step 4: Confirm & Submit ----
+function renderStep4(el) {
+  const slotCount = getVehicleSlotCount(state.selectedVehicle);
+  const endTime = addMinutesToTime(state.selectedTime, slotCount * getSlotMinutes());
+  const dateObj = new Date(state.selectedDate + 'T00:00:00');
+  const dayName = getDayName(dateObj);
+
+  el.innerHTML = `
+    <div class="wizard-panel">
+      <h3>예약 확인</h3>
+      <div class="summary-card">
+        <div class="summary-row">
+          <div class="summary-label">날짜</div>
+          <div class="summary-value">${state.selectedDate} (${dayName})</div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">시간</div>
+          <div class="summary-value">${state.selectedTime} ~ ${endTime}</div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">도크</div>
+          <div class="summary-value">${state.selectedDock}번</div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">차량유형</div>
+          <div class="summary-value">${state.selectedVehicle}</div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">작업유형</div>
+          <div class="summary-value">${state.selectedWorkType}</div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">소요슬롯</div>
+          <div class="summary-value">${slotCount}슬롯 (${slotCount * 30}분)</div>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:20px;">
+        <label>메모 (선택사항)</label>
+        <textarea id="reservation-memo" rows="3" placeholder="요청사항이나 메모를 입력하세요"></textarea>
+      </div>
+      <div class="wizard-nav">
+        <button class="btn btn-outline" onclick="goToStep(3)">&laquo; 이전</button>
+        <button class="btn btn-success" id="submit-btn" onclick="submitReservation()">예약 신청</button>
+      </div>
+    </div>`;
+}
+
+async function submitReservation() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span> 예약 중...';
+
+  try {
+    const memo = document.getElementById('reservation-memo').value.trim();
+    const res = await apiPost('createReservation', {
+      date: state.selectedDate,
+      startTime: state.selectedTime,
+      dock: state.selectedDock,
+      vehicleType: state.selectedVehicle,
+      workType: state.selectedWorkType,
+      memo: memo
+    });
+
+    if (!res.success) {
+      showToast(res.error || '예약 실패', 'error');
+      btn.disabled = false;
+      btn.textContent = '예약 신청';
+      return;
+    }
+
+    // Show success
+    const el = document.getElementById('wizard-content');
+    el.innerHTML = `
+      <div class="wizard-panel">
+        <div class="success-card">
+          <div class="success-icon">&#10003;</div>
+          <div class="success-title">예약이 완료되었습니다!</div>
+          <div class="success-sub">예약 ID: ${res.data.reservationId}</div>
+          <button class="btn btn-primary" onclick="goToHistory()">내 예약현황 보기</button>
+          <button class="btn btn-outline" style="margin-left:8px;" onclick="resetAndRestart()">새 예약하기</button>
+        </div>
+      </div>`;
+    document.getElementById('wizard-progress').innerHTML = '';
+    showToast('예약이 성공적으로 완료되었습니다.', 'success');
+  } catch (e) {
+    showToast('예약 실패: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '예약 신청';
+  }
+}
+
+function goToHistory() {
+  switchTab('history');
+}
+
+function resetAndRestart() {
+  resetWizard();
+  renderWizard();
+}
+
+let _navigating = false;
+function goToStep(step) {
+  if (_navigating) return; // 중복 클릭 방지
+
+  // Validation before advancing
+  if (step > state.step) {
+    if (state.step === 1 && (!state.selectedVehicle || !state.selectedWorkType)) return;
+    if (state.step === 2 && !state.selectedDate) return;
+    if (state.step === 3 && (!state.selectedTime || !state.selectedDock)) return;
+  }
+
+  // Clear downstream selections when going back
+  if (step <= 2) { state.selectedTime = null; state.selectedDock = null; state.slotData = null; }
+  if (step <= 1) { state.selectedDate = null; }
+
+  _navigating = true;
+  state.step = step;
+  renderWizard();
+  setTimeout(() => { _navigating = false; }, 300);
+}
+
+// ============================================================
+// Reservations (History Tab)
+// ============================================================
+async function loadReservations() {
+  // Load reservations for a wide date range
+  const today = new Date();
+  const startDate = fmtDate(addDays(today, -90));
+  const endDate = fmtDate(addDays(today, 90));
+
+  try {
+    const res = await api('getReservations', { startDate, endDate });
+    if (res.success) {
+      state.reservations = res.data || [];
+      // Sort newest first by date+time
+      state.reservations.sort((a, b) => {
+        const da = a.date + a.startTime;
+        const db = b.date + b.startTime;
+        return db.localeCompare(da);
+      });
+    }
+  } catch (e) {
+    showToast('예약 목록 로딩 실패: ' + e.message, 'error');
+  }
+  renderReservations();
+}
+
+function setFilter(status) {
+  state.filterStatus = status;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.status === status));
+  renderReservations();
+}
+
+function renderReservations() {
+  const tbody = document.getElementById('history-tbody');
+  let filtered = state.reservations;
+  if (state.filterStatus !== '전체') {
+    filtered = filtered.filter(r => r.status === state.filterStatus);
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-state">예약 내역이 없습니다.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(r => {
+    const slotCount = getVehicleSlotCount(r.vehicleType);
+    const endTime = addMinutesToTime(r.startTime, slotCount * getSlotMinutes());
+    const cancelBtn = (r.status === '대기' || r.status === '확정')
+      ? `<button class="btn btn-danger btn-sm" onclick="cancelReservation('${r.reservationId}')">취소</button>`
+      : '-';
+    const badgeClass = `badge badge-${r.status}`;
+    const statusLabel = r.status === '확정' ? '승인' : r.status;
+
+    return `<tr>
+      <td style="font-weight:600;">${r.reservationId}</td>
+      <td>${r.date}</td>
+      <td>${r.startTime} ~ ${endTime}</td>
+      <td>${r.dock}번</td>
+      <td>${r.vehicleType}</td>
+      <td>${r.workType}</td>
+      <td><span class="${badgeClass}">${statusLabel}</span></td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.memo || ''}">${r.memo || '-'}</td>
+      <td>${cancelBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function cancelReservation(reservationId) {
+  if (!confirm('이 예약을 취소하시겠습니까?')) return;
+
+  try {
+    const res = await apiPost('updateReservation', {
+      reservationId: reservationId,
+      status: '취소'
+    });
+
+    if (res.success) {
+      showToast('예약이 취소되었습니다.', 'success');
+      loadReservations();
+    } else {
+      showToast(res.error || '취소 실패', 'error');
+    }
+  } catch (e) {
+    showToast('취소 실패: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// Toast
+// ============================================================
+function showToast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  setTimeout(() => { el.classList.remove('show'); }, 3000);
+}
+
+</script>
+</body>
+</html>
