@@ -765,9 +765,10 @@ function renderStep3Grid(el) {
     }
   }
 
+  const dockLabels = {1: '파인우드 전용', 2: '일반', 3: '공용'};
   let thead = '<tr><th class="time-label">시간</th>';
   for (let d = 1; d <= dockCount; d++) {
-    thead += `<th>도크 ${d}</th>`;
+    thead += `<th>도크 ${d}<br><span style="font-size:9px;color:#888">${dockLabels[d]||''}</span></th>`;
   }
   thead += '</tr>';
 
