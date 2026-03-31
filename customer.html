@@ -469,6 +469,22 @@ function fmtDate(d) {
 }
 function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function getDayName(d) { return DAY_NAMES[d.getDay()]; }
+function getNextBizDay(todayStr) {
+  // 영업일 기준 다음날 (운영일정 기반, 없으면 월~금)
+  for (let i = 1; i <= 30; i++) {
+    const d = addDays(new Date(todayStr + 'T00:00:00'), i);
+    const ds = fmtDate(d);
+    const dow = d.getDay();
+    const sched = state.scheduleMap[ds];
+    if (sched) {
+      const op = String(sched.operating || '').toLowerCase();
+      if (op === '운영' || op === 'y' || op === 'true' || op === '1') return ds;
+    } else {
+      if (dow >= 1 && dow <= 5) return ds;
+    }
+  }
+  return fmtDate(addDays(new Date(todayStr + 'T00:00:00'), 1));
+}
 function addMinutesToTime(timeStr, minutes) {
   const [h, m] = timeStr.split(':').map(Number);
   const total = h * 60 + m + minutes;
@@ -639,7 +655,12 @@ function renderStep2Calendar(el, startMonday) {
     const isSunday = dayOfWeek === 0;
     const opValue = schedule ? String(schedule.operating || '').toLowerCase() : '';
     const isNonOperating = isSunday || opValue === 'n' || opValue === '미운영' || opValue === 'false' || opValue === '0';
-    const isDisabled = isPast || isNonOperating;
+
+    // 11시 이후 마감: 당일 + 영업일기준 다음날 차단
+    const nowHour = new Date().getHours();
+    const isCutoff = (nowHour >= 11) && (dateStr === fmtDate(today) || dateStr === getNextBizDay(fmtDate(today)));
+
+    const isDisabled = isPast || isNonOperating || isCutoff;
     const isSelected = state.selectedDate === dateStr;
 
     let cls = 'date-cell';
@@ -652,6 +673,7 @@ function renderStep2Calendar(el, startMonday) {
     let statusHtml = '';
     if (isNonOperating) statusHtml = '<div class="date-status closed">운영안함</div>';
     else if (isPast) statusHtml = '<div class="date-status closed">지난 날짜</div>';
+    else if (isCutoff) statusHtml = '<div class="date-status closed">마감(11시)</div>';
     else statusHtml = '<div class="date-status open">예약가능</div>';
 
     const onclick = isDisabled ? '' : `onclick="selectDate('${dateStr}')"`;
