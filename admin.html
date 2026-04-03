@@ -279,7 +279,7 @@
             <input type="number" id="setting-dock-count" min="1" max="3" value="3" style="width:100%;">
           </div>
         </div>
-        <p style="font-size:11px;color:var(--text-secondary);margin-top:-8px;">* 일자별 실제 운영 도크 수는 캘린더 헤더에서 설정합니다. (기본: 2개, 최대: 3개)<br>도크1=파인우드리빙 전용 / 도크2=일반 고객사 / 도크3=공용(선택)</p>
+        <p style="font-size:11px;color:var(--text-secondary);margin-top:-8px;">* 일자별 실제 운영 도크 수는 캘린더 헤더에서 설정합니다. (기본: 3개)<br>도크1=파인우드리빙 전용 / 도크2=일반 고객사 / 도크3=공용</p>
       </div>
       <div class="settings-card">
         <h3>차량유형별 소요슬롯 (20분 단위)</h3>
@@ -499,15 +499,22 @@ async function loadCalendarData() {
       (settingsRes.data.vehicleTypes || []).forEach(v => {
         state.vehicleSlotMap[v.vehicleType] = v.slotCount;
       });
+    } else {
+      console.error('Settings load failed:', settingsRes.error);
+      showToast('설정 로딩 실패: ' + (settingsRes.error || ''), 'error');
     }
 
     if (scheduleRes.success) {
       state.schedule = {};
       (scheduleRes.data || []).forEach(s => { state.schedule[s.date] = s; });
+    } else {
+      console.error('Schedule load failed:', scheduleRes.error);
     }
 
     if (reservationsRes.success) {
       state.reservations = reservationsRes.data || [];
+    } else {
+      console.error('Reservations load failed:', reservationsRes.error);
     }
 
     renderCalendar();
@@ -541,11 +548,11 @@ function getDateDockCount(dateStr) {
   if (sched && sched.dockCount !== undefined && sched.dockCount !== null) {
     return sched.dockCount;
   }
-  return 2; // default
+  return 3;
 }
 
 function getMaxDockCount() {
-  return state.settings ? state.settings.global.dockCount : 2;
+  return state.settings ? state.settings.global.dockCount : 3;
 }
 
 function buildOccupancyMatrix(dateStr, reservations, dockCount) {
@@ -581,6 +588,11 @@ function buildOccupancyMatrix(dateStr, reservations, dockCount) {
 
 function renderCalendar() {
   const timeSlots = generateTimeSlots();
+  if (timeSlots.length === 0) {
+    document.getElementById('cal-thead').innerHTML = '';
+    document.getElementById('cal-tbody').innerHTML = '<tr><td style="text-align:center;padding:40px;color:var(--red);">설정 데이터를 불러올 수 없어 슬롯을 표시할 수 없습니다.<br>관리자 설정에서 운영시간/차량유형이 등록되어 있는지 확인해주세요.<br><button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="loadCalendarData()">재시도</button></td></tr>';
+    return;
+  }
   const maxDocks = getMaxDockCount();
   const today = new Date();
   const todayStr = fmtDate(today);

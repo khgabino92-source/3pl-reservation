@@ -445,9 +445,13 @@ async function loadSettings() {
     if (res.success) {
       state.settings = res.data;
       state.slotMinutes = res.data.global.slotMinutes || 20;
+    } else {
+      console.error('Settings load failed:', res.error);
+      showToast('설정 로딩 실패: ' + (res.error || '알 수 없는 오류'), 'error');
     }
   } catch (e) {
     console.error('Settings load error:', e);
+    showToast('서버 연결 실패: ' + e.message, 'error');
   }
 }
 
@@ -574,9 +578,14 @@ function renderStep1(el) {
   const slotInfo = slotCount ? `<div class="slot-info">소요시간: ${slotCount}슬롯 (${slotCount * sm}분)</div>` : '';
   const canNext = state.selectedVehicle && state.selectedWorkType;
 
+  const noVehicleMsg = vehicles.length === 0
+    ? '<div style="text-align:center;padding:16px;color:var(--red);font-size:13px;">차량유형을 불러올 수 없습니다. 새로고침하거나 관리자에게 문의해주세요.<br><button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="loadSettings().then(()=>renderWizard())">재시도</button></div>'
+    : '';
+
   el.innerHTML = `
     <div class="wizard-panel">
       <h3>차량유형 선택</h3>
+      ${noVehicleMsg}
       <div class="option-grid">${vehicleCards}</div>
       ${slotInfo}
       <h3 style="margin-top:24px;">작업유형 선택</h3>
