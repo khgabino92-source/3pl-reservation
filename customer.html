@@ -810,10 +810,12 @@ function renderStep3Grid(el) {
     }
   }
 
-  const dockLabels = {1: '파인우드 전용', 2: '일반', 3: '공용'};
+  const visibleDocks = data.accessibleDocks || [];
+  const dockDisplayName = (d) => d === 3 ? '도크_예비' : `도크${d}`;
+
   let thead = '<tr><th class="time-label">시간</th>';
-  for (let d = 1; d <= dockCount; d++) {
-    thead += `<th>도크 ${d}<br><span style="font-size:9px;color:#888">${dockLabels[d]||''}</span></th>`;
+  for (const d of visibleDocks) {
+    thead += `<th>${dockDisplayName(d)}</th>`;
   }
   thead += '</tr>';
 
@@ -821,8 +823,8 @@ function renderStep3Grid(el) {
   matrix.forEach((row, sIdx) => {
     tbody += '<tr>';
     tbody += `<td class="time-label">${row.time}</td>`;
-    for (let d = 0; d < dockCount; d++) {
-      const dockNum = d + 1;
+    for (const dockNum of visibleDocks) {
+      const d = dockNum - 1;
       const key = `${row.time}_${dockNum}`;
       const isOccupied = row.docks[d] !== null;
       const isAvailableStart = availableSet.has(key);
@@ -865,7 +867,7 @@ function renderStep3Grid(el) {
     ? addMinutesToTime(state.selectedTime, slotCount * sm)
     : null;
   const selectionInfo = state.selectedTime && state.selectedDock
-    ? `<div class="slot-info" style="margin-bottom:16px;">선택: ${state.selectedDate} ${state.selectedTime} ~ ${endTime} / 도크 ${state.selectedDock} (${slotCount}슬롯, ${slotCount * sm}분)</div>`
+    ? `<div class="slot-info" style="margin-bottom:16px;">선택: ${state.selectedDate} ${state.selectedTime} ~ ${endTime} / ${state.selectedDock === 3 ? '도크_예비' : '도크' + state.selectedDock} (${slotCount}슬롯, ${slotCount * sm}분)</div>`
     : '';
 
   const canNext = state.selectedTime && state.selectedDock;
@@ -935,7 +937,7 @@ function renderStep4(el) {
         </div>
         <div class="summary-row">
           <div class="summary-label">도크</div>
-          <div class="summary-value">${state.selectedDock}번</div>
+          <div class="summary-value">${state.selectedDock === 3 ? '도크_예비' : '도크' + state.selectedDock}</div>
         </div>
         <div class="summary-row">
           <div class="summary-label">차량유형</div>
@@ -1081,7 +1083,7 @@ function renderReservations() {
       <td style="font-weight:600;">${r.reservationId}</td>
       <td>${r.date}</td>
       <td>${r.startTime} ~ ${endTime}</td>
-      <td>${r.dock}번</td>
+      <td>${r.dock === 3 || r.dock === '3' ? '도크_예비' : '도크' + r.dock}</td>
       <td>${r.vehicleType}</td>
       <td>${r.workType}</td>
       <td><span class="${badgeClass}">${r.status}</span></td>
