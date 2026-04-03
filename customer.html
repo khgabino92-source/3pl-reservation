@@ -442,9 +442,11 @@ function switchTab(tab) {
 async function loadSettings() {
   try {
     const res = await api('getSettings');
+    console.log('[DEBUG] getSettings response:', JSON.stringify(res));
     if (res.success) {
       state.settings = res.data;
       state.slotMinutes = res.data.global.slotMinutes || 20;
+      console.log('[DEBUG] vehicleTypes:', res.data.vehicleTypes);
     } else {
       console.error('Settings load failed:', res.error);
       showToast('설정 로딩 실패: ' + (res.error || '알 수 없는 오류'), 'error');
