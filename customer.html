@@ -740,6 +740,18 @@ async function renderStep3(el) {
 
     if (!slotsRes.success) throw new Error(slotsRes.error || '슬롯 정보 로딩 실패');
 
+    if (slotsRes.data.cutoffMessage) {
+      el.innerHTML = `<div class="wizard-panel">
+        <h3>시간/도크 선택 - ${state.selectedDate}</h3>
+        <div style="text-align:center;padding:24px;color:var(--red);font-weight:600;">${slotsRes.data.cutoffMessage}</div>
+        <div class="wizard-nav">
+          <button class="btn btn-outline" onclick="goToStep(2)">&laquo; 날짜 다시 선택</button>
+          <button class="btn btn-primary" disabled>다음 &raquo;</button>
+        </div>
+      </div>`;
+      return;
+    }
+
     state.slotData = slotsRes.data;
     state.myLimits = limitsRes.success ? limitsRes.data : null;
     renderStep3Grid(el);
