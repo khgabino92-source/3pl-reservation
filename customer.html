@@ -667,9 +667,11 @@ function renderStep2Calendar(el, startMonday) {
     const opValue = schedule ? String(schedule.operating || '').toLowerCase() : '';
     const isNonOperating = isSunday || opValue === 'n' || opValue === '미운영' || opValue === 'false' || opValue === '0';
 
-    // 11시 이후 마감: 당일 + 영업일기준 다음날 차단
+    // 당일(D+0)은 항상 마감 + 11시 이후 다음 영업일(D+1)도 마감
     const nowHour = new Date().getHours();
-    const isCutoff = (nowHour >= 11) && (dateStr === fmtDate(today) || dateStr === getNextBizDay(fmtDate(today)));
+    const isToday = dateStr === fmtDate(today);
+    const isCutoffNextDay = (nowHour >= 11) && (dateStr === getNextBizDay(fmtDate(today)));
+    const isCutoff = isToday || isCutoffNextDay;
 
     const isDisabled = isPast || isNonOperating || isCutoff;
     const isSelected = state.selectedDate === dateStr;
@@ -684,7 +686,8 @@ function renderStep2Calendar(el, startMonday) {
     let statusHtml = '';
     if (isNonOperating) statusHtml = '<div class="date-status closed">운영안함</div>';
     else if (isPast) statusHtml = '<div class="date-status closed">지난 날짜</div>';
-    else if (isCutoff) statusHtml = '<div class="date-status closed">마감(11시)</div>';
+    else if (isToday) statusHtml = '<div class="date-status closed">당일마감</div>';
+    else if (isCutoffNextDay) statusHtml = '<div class="date-status closed">마감(11시)</div>';
     else statusHtml = '<div class="date-status open">예약가능</div>';
 
     const onclick = isDisabled ? '' : `onclick="selectDate('${dateStr}')"`;
