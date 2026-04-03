@@ -492,10 +492,6 @@ async function loadCalendarData() {
       api('getReservations', { startDate, endDate })
     ]);
 
-    console.log('[DEBUG] settingsRes:', JSON.stringify(settingsRes));
-    console.log('[DEBUG] scheduleRes:', JSON.stringify(scheduleRes));
-    console.log('[DEBUG] reservationsRes:', JSON.stringify(reservationsRes));
-
     if (settingsRes.success) {
       state.settings = settingsRes.data;
       state.slotMinutes = settingsRes.data.global.slotMinutes || 20;
@@ -503,7 +499,6 @@ async function loadCalendarData() {
       (settingsRes.data.vehicleTypes || []).forEach(v => {
         state.vehicleSlotMap[v.vehicleType] = v.slotCount;
       });
-      console.log('[DEBUG] settings loaded:', state.settings);
     } else {
       console.error('Settings load failed:', settingsRes.error);
       showToast('설정 로딩 실패: ' + (settingsRes.error || ''), 'error');

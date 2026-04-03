@@ -440,19 +440,30 @@ function switchTab(tab) {
 // Settings
 // ============================================================
 async function loadSettings() {
+  const CACHE_KEY = 'rsv_settings';
+  const CACHE_TTL = 10 * 60 * 1000;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (raw) {
+      const { data, ts } = JSON.parse(raw);
+      if (Date.now() - ts < CACHE_TTL) {
+        state.settings = data;
+        state.slotMinutes = data.global.slotMinutes || 20;
+        return;
+      }
+    }
+  } catch (_) {}
+
   try {
     const res = await api('getSettings');
-    console.log('[DEBUG] getSettings response:', JSON.stringify(res));
     if (res.success) {
       state.settings = res.data;
       state.slotMinutes = res.data.global.slotMinutes || 20;
-      console.log('[DEBUG] vehicleTypes:', res.data.vehicleTypes);
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ data: res.data, ts: Date.now() }));
     } else {
-      console.error('Settings load failed:', res.error);
-      showToast('설정 로딩 실패: ' + (res.error || '알 수 없는 오류'), 'error');
+      showToast('설정 로딩 실패: ' + (res.error || ''), 'error');
     }
   } catch (e) {
-    console.error('Settings load error:', e);
     showToast('서버 연결 실패: ' + e.message, 'error');
   }
 }
