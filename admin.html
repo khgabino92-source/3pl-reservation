@@ -198,6 +198,7 @@
     <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     <h1>3PL 입고예약 관리시스템</h1>
     <div class="header-right">
+      <button id="cutoff-toggle" class="btn-logout" onclick="toggleCutoff()" title="마감 해제/복원 토글" style="background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.3);color:#fca5a5;">⏰ 마감 상태 확인 중...</button>
       <span class="admin-name" id="admin-name"></span>
       <button class="btn-logout" onclick="doLogout()">로그아웃</button>
     </div>
@@ -397,6 +398,7 @@ function showApp() {
   document.getElementById('admin-name').textContent = state.user.userName + ' 님';
   state.weekStart = getMonday(new Date());
   loadCalendarData();
+  loadCutoffStatus();
 }
 
 // ============================================================
@@ -1344,6 +1346,59 @@ function escHtml(str) {
 function escAttr(str) {
   if (!str) return '';
   return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ============================================================
+// Cutoff Toggle
+// ============================================================
+let cutoffDisabled = false;
+
+async function loadCutoffStatus() {
+  try {
+    const res = await api('getCutoffStatus');
+    if (res.success) {
+      cutoffDisabled = res.data.cutoffDisabled;
+      renderCutoffButton();
+    }
+  } catch (_) {}
+}
+
+function renderCutoffButton() {
+  const btn = document.getElementById('cutoff-toggle');
+  if (cutoffDisabled) {
+    btn.style.background = 'rgba(16,185,129,0.2)';
+    btn.style.borderColor = 'rgba(16,185,129,0.4)';
+    btn.style.color = '#6ee7b7';
+    btn.textContent = '🔓 마감 해제됨 (클릭: 복원)';
+    btn.title = '현재 고객사 예약 마감이 해제된 상태입니다. 클릭하면 D-1 11시 마감으로 복원합니다.';
+  } else {
+    btn.style.background = 'rgba(239,68,68,0.15)';
+    btn.style.borderColor = 'rgba(239,68,68,0.3)';
+    btn.style.color = '#fca5a5';
+    btn.textContent = '🔒 마감 적용 중 (클릭: 해제)';
+    btn.title = '현재 D-1 11시 마감이 적용 중입니다. 클릭하면 임시로 마감을 해제합니다.';
+  }
+}
+
+async function toggleCutoff() {
+  const newState = !cutoffDisabled;
+  const msg = newState
+    ? '마감을 해제하시겠습니까?\n고객사가 자유롭게 예약할 수 있게 됩니다.'
+    : '마감을 복원하시겠습니까?\nD-1 11시 기준 마감이 다시 적용됩니다.';
+  if (!confirm(msg)) return;
+
+  try {
+    const res = await apiPost('toggleCutoff', { disabled: newState });
+    if (res.success) {
+      cutoffDisabled = res.data.cutoffDisabled;
+      renderCutoffButton();
+      showToast(res.data.message, 'success');
+    } else {
+      showToast(res.error || '토글 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
 }
 </script>
 </body>

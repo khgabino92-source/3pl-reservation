@@ -161,6 +161,28 @@
 
   .empty-state { text-align: center; padding: 48px 20px; color: var(--text-secondary); font-size: 14px; }
 
+  /* ---- Calendar View (예약관리) ---- */
+  .cal-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .cal-nav .cal-label { font-size: 14px; font-weight: 700; min-width: 240px; text-align: center; }
+  .cal-nav-btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 13px; font-weight: 500; }
+  .cal-nav-btn:hover { background: var(--bg); }
+  .cal-nav-btn.today { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cal-card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+  .cal-scroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 180px); }
+  .cal-tbl { border-collapse: collapse; font-size: 11px; width: 100%; table-layout: fixed; }
+  .cal-tbl th, .cal-tbl td { border: 1px solid var(--border); padding: 0; text-align: center; vertical-align: top; }
+  .cal-tbl thead th { position: sticky; top: 0; background: #f8fafc; z-index: 10; padding: 4px 2px; }
+  .cal-tbl .col-time { width: 50px; min-width: 50px; position: sticky; left: 0; z-index: 5; background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 10px; padding: 2px 4px; }
+  .cal-tbl thead .col-time { z-index: 15; }
+  .cal-cell { background: #fff; min-height: 30px; height: 30px; position: relative; }
+  .cal-cell.lunch { background: #f3f4f6; }
+  .cal-rsv { margin: 0; padding: 2px 3px; border-radius: 3px; font-size: 9px; line-height: 1.2; text-align: left; overflow: hidden; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  .cal-rsv.mine { background: #d1fae5; border-left: 3px solid var(--green); color: #065f46; }
+  .cal-rsv.other { background: #e5e7eb; border-left: 3px solid #9ca3af; color: #6b7280; }
+  .cal-rsv.blocked { background: #6b7280; border-left: 3px solid #374151; color: #fff; }
+  .cal-rsv .rsv-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-rsv .rsv-detail { font-size: 8px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
   .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 24px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 600; z-index: 2000; opacity: 0; transition: opacity .3s; pointer-events: none; }
   .toast.show { opacity: 1; }
   .toast.success { background: var(--green); }
@@ -230,6 +252,7 @@
 
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="reserve" onclick="switchTab('reserve')">예약하기</button>
+    <button class="tab-btn" data-tab="calendar" onclick="switchTab('calendar')">예약관리</button>
     <button class="tab-btn" data-tab="history" onclick="switchTab('history')">내 예약현황</button>
   </div>
 
@@ -241,7 +264,27 @@
     </div>
   </div>
 
-  <!-- ===== TAB 2: 내 예약현황 ===== -->
+  <!-- ===== TAB 2: 예약관리 (캘린더) ===== -->
+  <div class="tab-content" id="tab-calendar">
+    <div class="container" style="max-width:100%;">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="calNavigate(-1)">&#9664; 이전주</button>
+        <button class="cal-nav-btn today" onclick="calNavigateToday()">오늘</button>
+        <button class="cal-nav-btn" onclick="calNavigate(1)">다음주 &#9654;</button>
+        <div class="cal-label" id="cal-week-label"></div>
+      </div>
+      <div class="cal-card">
+        <div class="cal-scroll">
+          <table class="cal-tbl" id="cal-tbl">
+            <thead id="cal-tbl-head"></thead>
+            <tbody id="cal-tbl-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 3: 내 예약현황 ===== -->
   <div class="tab-content" id="tab-history">
     <div class="container">
       <div class="filter-bar" id="filter-bar">
@@ -303,7 +346,12 @@ let state = {
   scheduleMap: {},
   myLimits: null,
   reservations: [],
-  filterStatus: '전체'
+  filterStatus: '전체',
+  calWeekStart: null,
+  calReservations: [],
+  calAccessibleDocks: [],
+  calTimeSlots: [],
+  calSlotMinutes: 20
 };
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
@@ -433,6 +481,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
   if (tab === 'reserve') { resetWizard(); renderWizard(); }
+  if (tab === 'calendar') loadCalendarView();
   if (tab === 'history') loadReservations();
 }
 
@@ -615,6 +664,7 @@ function selectWorkType(type) { state.selectedWorkType = type; renderWizard(); }
 
 // ---- Step 2: Date selection ----
 let _step2RequestId = 0;
+let _cutoffOverrideDisabled = false;
 
 async function renderStep2(el) {
   const requestId = ++_step2RequestId;
@@ -635,12 +685,16 @@ async function renderStep2(el) {
   </div>`;
 
   try {
-    const scheduleRes = await api('getSchedule', { startDate, endDate });
+    const [scheduleRes, cutoffRes] = await Promise.all([
+      api('getSchedule', { startDate, endDate }),
+      api('getCutoffStatus').catch(() => ({ success: false }))
+    ]);
     if (requestId !== _step2RequestId) return;
     state.scheduleMap = {};
     if (scheduleRes.success) {
       (scheduleRes.data || []).forEach(s => { state.scheduleMap[s.date] = s; });
     }
+    _cutoffOverrideDisabled = cutoffRes.success && cutoffRes.data && cutoffRes.data.cutoffDisabled;
     renderStep2Calendar(el, thisMonday);
   } catch (e) {
     if (requestId !== _step2RequestId) return;
@@ -678,10 +732,9 @@ function renderStep2Calendar(el, startMonday) {
     const opValue = schedule ? String(schedule.operating || '').toLowerCase() : '';
     const isNonOperating = isSunday || opValue === 'n' || opValue === '미운영' || opValue === 'false' || opValue === '0';
 
-    // 당일(D+0)은 항상 마감 + 11시 이후 다음 영업일(D+1)도 마감
     const nowHour = new Date().getHours();
     const isToday = dateStr === fmtDate(today);
-    const isCutoffNextDay = (nowHour >= 11) && (dateStr === getNextBizDay(fmtDate(today)));
+    const isCutoffNextDay = !_cutoffOverrideDisabled && (nowHour >= 11) && (dateStr === getNextBizDay(fmtDate(today)));
     const isCutoff = isToday || isCutoffNextDay;
 
     const isDisabled = isPast || isNonOperating || isCutoff;
@@ -1120,6 +1173,165 @@ async function cancelReservation(reservationId) {
   } catch (e) {
     showToast('취소 실패: ' + e.message, 'error');
   }
+}
+
+// ============================================================
+// Calendar View (예약관리 탭)
+// ============================================================
+function calNavigate(offset) {
+  state.calWeekStart = addDays(state.calWeekStart, offset * 7);
+  loadCalendarView();
+}
+function calNavigateToday() {
+  state.calWeekStart = getMonday(new Date());
+  loadCalendarView();
+}
+
+async function loadCalendarView() {
+  if (!state.calWeekStart) state.calWeekStart = getMonday(new Date());
+  const start = fmtDate(state.calWeekStart);
+  const end = fmtDate(addDays(state.calWeekStart, 6));
+  document.getElementById('cal-week-label').textContent =
+    start + ' ~ ' + end;
+
+  document.getElementById('cal-tbl-body').innerHTML =
+    '<tr><td colspan="20" style="text-align:center;padding:24px;color:var(--text-secondary);">불러오는 중...</td></tr>';
+
+  try {
+    const res = await api('getCalendarReservations', { startDate: start, endDate: end });
+    if (!res.success) throw new Error(res.error || '로딩 실패');
+
+    state.calReservations = res.data.reservations || [];
+    state.calAccessibleDocks = res.data.accessibleDocks || [];
+    state.calSlotMinutes = res.data.slotMinutes || 20;
+
+    const opStart = res.data.operationStart || '09:00';
+    const opEnd = res.data.operationEnd || '18:00';
+    state.calTimeSlots = [];
+    const [sh, sm] = opStart.split(':').map(Number);
+    const [eh, em] = opEnd.split(':').map(Number);
+    for (let m = sh * 60 + sm; m < eh * 60 + em; m += state.calSlotMinutes) {
+      const hh = Math.floor(m / 60);
+      const mm = m % 60;
+      state.calTimeSlots.push(String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'));
+    }
+
+    renderCalendarView();
+  } catch (e) {
+    document.getElementById('cal-tbl-body').innerHTML =
+      '<tr><td colspan="20" style="text-align:center;padding:24px;color:var(--red);">오류: ' + e.message + '</td></tr>';
+  }
+}
+
+function renderCalendarView() {
+  const docks = state.calAccessibleDocks;
+  const timeSlots = state.calTimeSlots;
+  const sm = state.calSlotMinutes;
+  const todayStr = fmtDate(new Date());
+  const myCode = state.user ? state.user.companyCode : '';
+  const vehicleSlotMap = {};
+  if (state.settings && state.settings.vehicleTypes) {
+    state.settings.vehicleTypes.forEach(v => { vehicleSlotMap[v.vehicleType] = v.slotCount; });
+  }
+  const dockLabel = (d) => d === 3 ? '예비' : '도크' + d;
+
+  const dates = [];
+  for (let i = 0; i < 7; i++) dates.push(addDays(state.calWeekStart, i));
+
+  // thead
+  let thRow1 = '<tr><th class="col-time" rowspan="2">시간</th>';
+  for (const d of dates) {
+    const ds = fmtDate(d);
+    const isToday = ds === todayStr;
+    const dayLabel = (d.getMonth() + 1) + '/' + d.getDate() + '(' + getDayName(d) + ')';
+    thRow1 += '<th colspan="' + docks.length + '" style="' + (isToday ? 'color:var(--accent);' : '') + '">' + dayLabel + '</th>';
+  }
+  thRow1 += '</tr>';
+  let thRow2 = '<tr>';
+  for (const d of dates) {
+    for (const dk of docks) {
+      thRow2 += '<th style="font-size:10px;">' + dockLabel(dk) + '</th>';
+    }
+  }
+  thRow2 += '</tr>';
+  document.getElementById('cal-tbl-head').innerHTML = thRow1 + thRow2;
+
+  // build occupancy: { "2026-03-27": { dock: { slotIdx: reservation } } }
+  const occupancy = {};
+  for (const d of dates) {
+    const ds = fmtDate(d);
+    occupancy[ds] = {};
+    for (const dk of docks) occupancy[ds][dk] = {};
+  }
+
+  for (const rsv of state.calReservations) {
+    const ds = rsv.date;
+    if (!occupancy[ds]) continue;
+    const dk = rsv.dock;
+    if (!occupancy[ds][dk]) continue;
+    const startIdx = timeSlots.indexOf(rsv.startTime);
+    if (startIdx === -1) continue;
+    const slotCount = rsv.status === '차단' ? (Number(rsv.vehicleType) || 1) : (vehicleSlotMap[rsv.vehicleType] || rsv.slotCount || 1);
+    for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
+      occupancy[ds][dk][startIdx + k] = { rsv, isStart: k === 0, slotCount };
+    }
+  }
+
+  // skip map
+  const skipMap = {};
+  for (let s = 0; s < timeSlots.length; s++) skipMap[s] = {};
+  for (let di = 0; di < dates.length; di++) {
+    const ds = fmtDate(dates[di]);
+    for (let dki = 0; dki < docks.length; dki++) {
+      const dk = docks[dki];
+      const col = di * docks.length + dki;
+      for (let s = 0; s < timeSlots.length; s++) {
+        const cell = occupancy[ds][dk][s];
+        if (cell && cell.isStart) {
+          for (let k = 1; k < cell.slotCount && (s + k) < timeSlots.length; k++) {
+            skipMap[s + k][col] = true;
+          }
+        }
+      }
+    }
+  }
+
+  let tbody = '';
+  for (let s = 0; s < timeSlots.length; s++) {
+    tbody += '<tr>';
+    tbody += '<td class="col-time">' + timeSlots[s] + '</td>';
+    for (let di = 0; di < dates.length; di++) {
+      const ds = fmtDate(dates[di]);
+      for (let dki = 0; dki < docks.length; dki++) {
+        const dk = docks[dki];
+        const col = di * docks.length + dki;
+        if (skipMap[s][col]) continue;
+        const cell = occupancy[ds][dk][s];
+        if (cell && cell.isStart) {
+          const rsv = cell.rsv;
+          const isMine = rsv.companyCode === myCode;
+          const isBlocked = rsv.status === '차단';
+          const cls = isBlocked ? 'blocked' : (isMine ? 'mine' : 'other');
+          const nameText = isBlocked ? '차단' : (rsv.companyName || '예약완료');
+          const detailText = isMine && rsv.vehicleType ? rsv.vehicleType : '';
+          tbody += '<td class="cal-cell" rowspan="' + cell.slotCount + '">';
+          tbody += '<div class="cal-rsv ' + cls + '">';
+          tbody += '<span class="rsv-name">' + escHtml(nameText) + '</span>';
+          if (detailText) tbody += '<span class="rsv-detail">' + escHtml(detailText) + '</span>';
+          tbody += '</div></td>';
+        } else if (!cell) {
+          tbody += '<td class="cal-cell"></td>';
+        }
+      }
+    }
+    tbody += '</tr>';
+  }
+  document.getElementById('cal-tbl-body').innerHTML = tbody;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ============================================================
