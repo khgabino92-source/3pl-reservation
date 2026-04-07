@@ -293,6 +293,7 @@
         <button class="filter-btn" data-status="확정" onclick="setFilter('확정')">확정</button>
         <button class="filter-btn" data-status="완료" onclick="setFilter('완료')">완료</button>
         <button class="filter-btn" data-status="취소" onclick="setFilter('취소')">취소</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadCSV()" style="margin-left:auto;">CSV 다운로드</button>
       </div>
       <div class="table-card">
         <div class="table-wrap">
@@ -1154,7 +1155,7 @@ function renderReservations() {
       <td>${r.vehicleType}</td>
       <td>${r.workType}</td>
       <td><span class="${badgeClass}">${r.status}</span></td>
-      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.memo || ''}">${r.memo || '-'}</td>
+      <td style="min-width:200px;max-width:350px;white-space:pre-wrap;word-break:break-word;">${r.memo || '-'}</td>
       <td>${cancelBtn}</td>
     </tr>`;
   }).join('');
@@ -1173,6 +1174,34 @@ async function cancelReservation(reservationId) {
   } catch (e) {
     showToast('취소 실패: ' + e.message, 'error');
   }
+}
+
+function downloadCSV() {
+  let filtered = state.reservations;
+  if (state.filterStatus !== '전체') {
+    filtered = filtered.filter(r => r.status === state.filterStatus);
+  }
+  if (filtered.length === 0) { showToast('다운로드할 데이터가 없습니다.', 'error'); return; }
+
+  const sm = getSlotMinutes();
+  const csvEsc = (v) => '"' + String(v || '').replace(/"/g, '""') + '"';
+  const header = ['예약ID','날짜','시작시간','종료시간','도크','차량유형','작업유형','상태','발주번호','메모'];
+  const rows = filtered.map(r => {
+    const sc = getVehicleSlotCount(r.vehicleType);
+    const end = addMinutesToTime(r.startTime, sc * sm);
+    const dock = (r.dock === 3 || r.dock === '3') ? '도크_예비' : '도크' + r.dock;
+    return [r.reservationId, r.date, r.startTime, end, dock, r.vehicleType, r.workType, r.status, r.poNumber || '', r.memo || ''].map(csvEsc).join(',');
+  });
+
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + header.join(',') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '예약현황_' + fmtDate(new Date()) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV 다운로드 완료', 'success');
 }
 
 // ============================================================
