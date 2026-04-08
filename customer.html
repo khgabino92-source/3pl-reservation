@@ -336,6 +336,7 @@ let state = {
   user: JSON.parse(sessionStorage.getItem('rsv_cust_user') || 'null'),
   settings: null,
   slotMinutes: 20,
+  durationMatrix: { pinewood: {}, general: {} },
   step: 1,
   selectedVehicle: null,
   selectedWorkType: null,
@@ -499,6 +500,11 @@ async function loadSettings() {
       if (Date.now() - ts < CACHE_TTL) {
         state.settings = data;
         state.slotMinutes = data.global.slotMinutes || 20;
+        state.durationMatrix = { pinewood: {}, general: {} };
+        (data.vehicleTypes || []).forEach(v => {
+          if (v.pinewoodSlots) state.durationMatrix.pinewood[v.vehicleType] = v.pinewoodSlots;
+          if (v.generalSlots)  state.durationMatrix.general[v.vehicleType]  = v.generalSlots;
+        });
         return;
       }
     }
@@ -509,6 +515,11 @@ async function loadSettings() {
     if (res.success) {
       state.settings = res.data;
       state.slotMinutes = res.data.global.slotMinutes || 20;
+      state.durationMatrix = { pinewood: {}, general: {} };
+      (res.data.vehicleTypes || []).forEach(v => {
+        if (v.pinewoodSlots) state.durationMatrix.pinewood[v.vehicleType] = v.pinewoodSlots;
+        if (v.generalSlots)  state.durationMatrix.general[v.vehicleType]  = v.generalSlots;
+      });
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data: res.data, ts: Date.now() }));
     } else {
       showToast('설정 로딩 실패: ' + (res.error || ''), 'error');
@@ -522,6 +533,20 @@ function getVehicleSlotCount(vehicleType) {
   if (!state.settings || !state.settings.vehicleTypes) return 1;
   const v = state.settings.vehicleTypes.find(vt => vt.vehicleType === vehicleType);
   return v ? v.slotCount : 1;
+}
+
+/**
+ * 차량유형 + 작업유형 조합별 소요 슬롯 수 반환 (로그인 업체 기준).
+ * 파인우드/일반 판별은 state.user.companyCode 기준.
+ */
+function getDynamicSlotCount(vehicleType, workType) {
+  const companyCode = state.user ? state.user.companyCode : '';
+  const isPinewood = companyCode === 'PINEWOOD';
+  const matrix = isPinewood ? state.durationMatrix.pinewood : state.durationMatrix.general;
+  if (matrix && matrix[vehicleType] && workType && matrix[vehicleType][workType] !== undefined) {
+    return Number(matrix[vehicleType][workType]) || 1;
+  }
+  return getVehicleSlotCount(vehicleType);
 }
 
 function getSlotMinutes() {
@@ -623,7 +648,7 @@ function renderStep1(el) {
     vehicleCards += `<div class="option-card ${sel}" onclick="selectVehicle('${v.vehicleType}')">
       <div class="option-icon">${icon}</div>
       <div class="option-label">${v.vehicleType}</div>
-      <div class="option-sub">${v.slotCount}슬롯 (${v.slotCount * sm}분)</div>
+      <div class="option-sub">기본 ${v.slotCount}슬롯</div>
     </div>`;
   });
 
@@ -637,7 +662,9 @@ function renderStep1(el) {
     </div>`;
   });
 
-  const slotCount = state.selectedVehicle ? getVehicleSlotCount(state.selectedVehicle) : null;
+  const slotCount = (state.selectedVehicle && state.selectedWorkType)
+    ? getDynamicSlotCount(state.selectedVehicle, state.selectedWorkType)
+    : null;
   const slotInfo = slotCount ? `<div class="slot-info">소요시간: ${slotCount}슬롯 (${slotCount * sm}분)</div>` : '';
   const canNext = state.selectedVehicle && state.selectedWorkType;
 
@@ -802,7 +829,7 @@ async function renderStep3(el) {
 
   try {
     const [slotsRes, limitsRes] = await Promise.all([
-      api('getAvailableSlots', { date: state.selectedDate, vehicleType: state.selectedVehicle }),
+      api('getAvailableSlots', { date: state.selectedDate, vehicleType: state.selectedVehicle, workType: state.selectedWorkType }),
       api('getMyLimits', { date: state.selectedDate })
     ]);
 
@@ -985,7 +1012,10 @@ function highlightBlock(startTime, dock, show) {
 
 // ---- Step 4: Confirm & Submit ----
 function renderStep4(el) {
-  const slotCount = getVehicleSlotCount(state.selectedVehicle);
+  // slotData가 있으면 백엔드가 계산한 정확한 값 사용, 없으면 로컬 계산
+  const slotCount = (state.slotData && state.slotData.slotCount)
+    ? state.slotData.slotCount
+    : getDynamicSlotCount(state.selectedVehicle, state.selectedWorkType);
   const sm = getSlotMinutes();
   const endTime = addMinutesToTime(state.selectedTime, slotCount * sm);
   const dateObj = new Date(state.selectedDate + 'T00:00:00');
@@ -1140,7 +1170,7 @@ function renderReservations() {
 
   const sm = getSlotMinutes();
   tbody.innerHTML = filtered.map(r => {
-    const slotCount = getVehicleSlotCount(r.vehicleType);
+    const slotCount = getDynamicSlotCount(r.vehicleType, r.workType);
     const endTime = addMinutesToTime(r.startTime, slotCount * sm);
     const cancelBtn = (r.status === '승인대기')
       ? `<button class="btn btn-danger btn-sm" onclick="cancelReservation('${r.reservationId}')">취소</button>`
@@ -1187,7 +1217,7 @@ function downloadCSV() {
   const csvEsc = (v) => '"' + String(v || '').replace(/"/g, '""') + '"';
   const header = ['예약ID','날짜','시작시간','종료시간','도크','차량유형','작업유형','상태','발주번호','메모'];
   const rows = filtered.map(r => {
-    const sc = getVehicleSlotCount(r.vehicleType);
+    const sc = getDynamicSlotCount(r.vehicleType, r.workType);
     const end = addMinutesToTime(r.startTime, sc * sm);
     const dock = (r.dock === 3 || r.dock === '3') ? '도크_예비' : '도크' + r.dock;
     return [r.reservationId, r.date, r.startTime, end, dock, r.vehicleType, r.workType, r.status, r.poNumber || '', r.memo || ''].map(csvEsc).join(',');
@@ -1300,7 +1330,10 @@ function renderCalendarView() {
     if (!occupancy[ds][dk]) continue;
     const startIdx = timeSlots.indexOf(rsv.startTime);
     if (startIdx === -1) continue;
-    const slotCount = rsv.status === '차단' ? (Number(rsv.vehicleType) || 1) : (vehicleSlotMap[rsv.vehicleType] || rsv.slotCount || 1);
+    // 백엔드가 계산한 slotCount 우선 사용, 없으면 vehicleSlotMap fallback
+    const slotCount = rsv.status === '차단'
+      ? (Number(rsv.vehicleType) || 1)
+      : (rsv.slotCount || vehicleSlotMap[rsv.vehicleType] || 1);
     for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
       occupancy[ds][dk][startIdx + k] = { rsv, isStart: k === 0, slotCount };
     }

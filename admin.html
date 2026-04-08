@@ -283,13 +283,28 @@
         <p style="font-size:11px;color:var(--text-secondary);margin-top:-8px;">* 일자별 실제 운영 도크 수는 캘린더 헤더에서 설정합니다. (기본: 3개)<br>도크1=파인우드리빙 전용 / 도크2=일반 고객사 / 도크3=공용</p>
       </div>
       <div class="settings-card">
-        <h3>차량유형별 소요슬롯 (20분 단위)</h3>
+        <h3>소요슬롯 매트릭스 (20분 단위)</h3>
+        <p style="font-size:11px;color:var(--text-secondary);margin-bottom:12px;">* 파인우드(PINEWOOD)와 일반 고객사의 작업유형별 소요 슬롯을 각각 설정합니다. 비워두면 기본(fallback) 값이 적용됩니다.</p>
+        <div style="overflow-x:auto;">
         <table class="settings-table" id="vehicle-settings-table">
           <thead>
-            <tr><th>차량유형</th><th>소요슬롯 (20분 단위)</th><th>최대예약시간</th></tr>
+            <tr>
+              <th rowspan="2" style="vertical-align:middle;">차량유형</th>
+              <th colspan="2" style="text-align:center;background:#eff6ff;color:#1d4ed8;border-bottom:none;">파인우드 (PINEWOOD)</th>
+              <th colspan="2" style="text-align:center;background:#f0fdf4;color:#15803d;border-bottom:none;">일반 고객사</th>
+              <th rowspan="2" style="vertical-align:middle;">기본<br><span style="font-size:10px;color:var(--text-secondary);">(미설정시)</span></th>
+              <th rowspan="2" style="vertical-align:middle;">최대예약시간</th>
+            </tr>
+            <tr>
+              <th style="background:#eff6ff;color:#1d4ed8;">수작업</th>
+              <th style="background:#eff6ff;color:#1d4ed8;">파렛트</th>
+              <th style="background:#f0fdf4;color:#15803d;">수작업</th>
+              <th style="background:#f0fdf4;color:#15803d;">파렛트</th>
+            </tr>
           </thead>
           <tbody id="vehicle-settings-tbody"></tbody>
         </table>
+        </div>
       </div>
       <div style="text-align:right;margin-top:16px;">
         <button class="btn btn-primary" onclick="saveSettings()" id="save-settings-btn">설정 저장</button>
@@ -324,6 +339,7 @@ let state = {
   reservations: [],
   customers: [],
   vehicleSlotMap: {},
+  durationMatrix: { pinewood: {}, general: {} },
   slotMinutes: 20
 };
 
@@ -498,8 +514,11 @@ async function loadCalendarData() {
       state.settings = settingsRes.data;
       state.slotMinutes = settingsRes.data.global.slotMinutes || 20;
       state.vehicleSlotMap = {};
+      state.durationMatrix = { pinewood: {}, general: {} };
       (settingsRes.data.vehicleTypes || []).forEach(v => {
         state.vehicleSlotMap[v.vehicleType] = v.slotCount;
+        if (v.pinewoodSlots) state.durationMatrix.pinewood[v.vehicleType] = v.pinewoodSlots;
+        if (v.generalSlots)  state.durationMatrix.general[v.vehicleType]  = v.generalSlots;
       });
     } else {
       console.error('Settings load failed:', settingsRes.error);
@@ -524,6 +543,19 @@ async function loadCalendarData() {
     console.error('Calendar load error:', e);
     showToast('데이터 로딩 실패: ' + e.message, 'error');
   }
+}
+
+// ============================================================
+// Slot Count Helper
+// ============================================================
+function getSlotCountForReservation(rsv) {
+  if (rsv.status === '차단') return Number(rsv.vehicleType) || 1;
+  const isPinewood = rsv.companyCode === 'PINEWOOD';
+  const matrix = isPinewood ? state.durationMatrix.pinewood : state.durationMatrix.general;
+  if (matrix && matrix[rsv.vehicleType] && rsv.workType && matrix[rsv.vehicleType][rsv.workType] !== undefined) {
+    return Number(matrix[rsv.vehicleType][rsv.workType]) || 1;
+  }
+  return state.vehicleSlotMap[rsv.vehicleType] || 1;
 }
 
 // ============================================================
@@ -574,7 +606,7 @@ function buildOccupancyMatrix(dateStr, reservations, dockCount) {
     if (startIdx === -1) continue;
     const dockIdx = rsv.dock - 1;
     if (dockIdx < 0 || dockIdx >= dockCount) continue;
-    const slotCount = rsv.status === '차단' ? (Number(rsv.vehicleType) || 1) : (state.vehicleSlotMap[rsv.vehicleType] || 1);
+    const slotCount = getSlotCountForReservation(rsv);
 
     for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
       matrix[startIdx + k][dockIdx] = {
@@ -799,7 +831,7 @@ function showReservationDetail(reservationId) {
   const rsv = state.reservations.find(r => r.reservationId === reservationId);
   if (!rsv) return;
 
-  const slotCount = state.vehicleSlotMap[rsv.vehicleType] || 1;
+  const slotCount = getSlotCountForReservation(rsv);
   const [h, m] = rsv.startTime.split(':').map(Number);
   const endMin = h * 60 + m + slotCount * state.slotMinutes;
   const endTime = String(Math.floor(endMin / 60)).padStart(2, '0') + ':' + String(endMin % 60).padStart(2, '0');
@@ -1238,27 +1270,44 @@ async function loadSettings() {
 
     state.settings = res.data;
     state.slotMinutes = res.data.global.slotMinutes || 20;
-    const g = res.data.global;
+    state.durationMatrix = { pinewood: {}, general: {} };
+    (res.data.vehicleTypes || []).forEach(v => {
+      state.vehicleSlotMap[v.vehicleType] = v.slotCount;
+      if (v.pinewoodSlots) state.durationMatrix.pinewood[v.vehicleType] = v.pinewoodSlots;
+      if (v.generalSlots)  state.durationMatrix.general[v.vehicleType]  = v.generalSlots;
+    });
 
+    const g = res.data.global;
     document.getElementById('setting-op-start').value = g.operationStart || '09:00';
     document.getElementById('setting-op-end').value = g.operationEnd || '18:00';
     document.getElementById('setting-dock-count').value = g.dockCount || 2;
 
     const defaultVehicles = [
-      { vehicleType: '1T', slotCount: 1 },
-      { vehicleType: '5T', slotCount: 2 },
-      { vehicleType: '11T', slotCount: 3 },
-      { vehicleType: '컨테이너 20FT', slotCount: 4 },
-      { vehicleType: '컨테이너 40FT', slotCount: 6 }
+      { vehicleType: '1T',            slotCount: 1, maxResvTime: '', pinewoodSlots: {}, generalSlots: {} },
+      { vehicleType: '5T',            slotCount: 2, maxResvTime: '', pinewoodSlots: {}, generalSlots: {} },
+      { vehicleType: '11T',           slotCount: 3, maxResvTime: '', pinewoodSlots: {}, generalSlots: {} },
+      { vehicleType: '컨테이너 20FT', slotCount: 4, maxResvTime: '', pinewoodSlots: {}, generalSlots: {} },
+      { vehicleType: '컨테이너 40FT', slotCount: 6, maxResvTime: '', pinewoodSlots: {}, generalSlots: {} }
     ];
 
     const vehicles = res.data.vehicleTypes.length > 0 ? res.data.vehicleTypes : defaultVehicles;
+    const sm = state.slotMinutes;
 
     let html = '';
     for (const v of vehicles) {
+      const ps = (v.pinewoodSlots && typeof v.pinewoodSlots === 'object') ? v.pinewoodSlots : {};
+      const gs = (v.generalSlots  && typeof v.generalSlots  === 'object') ? v.generalSlots  : {};
+      const psW = ps['수작업'] !== undefined ? ps['수작업'] : v.slotCount;
+      const psP = ps['파렛트'] !== undefined ? ps['파렛트'] : v.slotCount;
+      const gsW = gs['수작업'] !== undefined ? gs['수작업'] : v.slotCount;
+      const gsP = gs['파렛트'] !== undefined ? gs['파렛트'] : v.slotCount;
       html += `<tr>
-        <td>${escHtml(v.vehicleType)}</td>
-        <td><input type="number" min="1" max="20" value="${v.slotCount}" data-vehicle="${escAttr(v.vehicleType)}"> <span style="font-size:11px;color:var(--text-secondary);">(${v.slotCount * state.slotMinutes}분)</span></td>
+        <td style="font-weight:600;">${escHtml(v.vehicleType)}</td>
+        <td style="background:#f8fbff;"><input type="number" min="1" max="20" value="${psW}" data-vehicle="${escAttr(v.vehicleType)}" data-group="pinewood" data-wtype="수작업" style="width:60px;"><span style="font-size:10px;color:var(--text-secondary);margin-left:4px;">(${psW * sm}분)</span></td>
+        <td style="background:#f8fbff;"><input type="number" min="1" max="20" value="${psP}" data-vehicle="${escAttr(v.vehicleType)}" data-group="pinewood" data-wtype="파렛트" style="width:60px;"><span style="font-size:10px;color:var(--text-secondary);margin-left:4px;">(${psP * sm}분)</span></td>
+        <td style="background:#f0fdf4;"><input type="number" min="1" max="20" value="${gsW}" data-vehicle="${escAttr(v.vehicleType)}" data-group="general" data-wtype="수작업" style="width:60px;"><span style="font-size:10px;color:var(--text-secondary);margin-left:4px;">(${gsW * sm}분)</span></td>
+        <td style="background:#f0fdf4;"><input type="number" min="1" max="20" value="${gsP}" data-vehicle="${escAttr(v.vehicleType)}" data-group="general" data-wtype="파렛트" style="width:60px;"><span style="font-size:10px;color:var(--text-secondary);margin-left:4px;">(${gsP * sm}분)</span></td>
+        <td><input type="number" min="1" max="20" value="${v.slotCount}" data-vehicle="${escAttr(v.vehicleType)}" data-default="1" style="width:60px;"><span style="font-size:10px;color:var(--text-secondary);margin-left:4px;">(${v.slotCount * sm}분)</span></td>
         <td><input type="time" value="${v.maxResvTime || ''}" data-vehicle-max="${escAttr(v.vehicleType)}" placeholder="미설정"></td>
       </tr>`;
     }
@@ -1277,11 +1326,21 @@ async function saveSettings() {
   const rows = document.querySelectorAll('#vehicle-settings-tbody tr');
   const settings = [];
   rows.forEach((row, idx) => {
-    const inputs = row.querySelectorAll('input');
-    const vehicleType = inputs[0].dataset.vehicle;
-    const slotCount = parseInt(inputs[0].value) || 1;
-    const maxResvTime = inputs[1] ? inputs[1].value : '';
-    const entry = { vehicleType, slotCount, maxResvTime };
+    const defaultInput = row.querySelector('[data-default="1"]');
+    const vehicleType = defaultInput ? defaultInput.dataset.vehicle : row.cells[0].textContent.trim();
+    const slotCount = parseInt(defaultInput?.value) || 1;
+    const maxResvTime = row.querySelector('[data-vehicle-max]')?.value || '';
+
+    const pinewoodSlots = {};
+    const generalSlots  = {};
+    row.querySelectorAll('[data-group="pinewood"]').forEach(input => {
+      pinewoodSlots[input.dataset.wtype] = parseInt(input.value) || 1;
+    });
+    row.querySelectorAll('[data-group="general"]').forEach(input => {
+      generalSlots[input.dataset.wtype] = parseInt(input.value) || 1;
+    });
+
+    const entry = { vehicleType, slotCount, maxResvTime, pinewoodSlots, generalSlots };
     if (idx === 0) {
       entry.operationStart = operationStart;
       entry.operationEnd = operationEnd;
@@ -1298,12 +1357,20 @@ async function saveSettings() {
     const res = await apiPost('updateSettings', { settings });
     if (res.success) {
       showToast('설정이 저장되었습니다.', 'success');
+      state.durationMatrix = { pinewood: {}, general: {} };
+      state.vehicleSlotMap = {};
+      settings.forEach(s => {
+        state.vehicleSlotMap[s.vehicleType] = s.slotCount;
+        if (s.pinewoodSlots) state.durationMatrix.pinewood[s.vehicleType] = s.pinewoodSlots;
+        if (s.generalSlots)  state.durationMatrix.general[s.vehicleType]  = s.generalSlots;
+      });
       state.settings = {
         global: { operationStart, operationEnd, dockCount, slotMinutes: state.slotMinutes },
-        vehicleTypes: settings.map(s => ({ vehicleType: s.vehicleType, slotCount: s.slotCount }))
+        vehicleTypes: settings.map(s => ({
+          vehicleType: s.vehicleType, slotCount: s.slotCount,
+          pinewoodSlots: s.pinewoodSlots, generalSlots: s.generalSlots
+        }))
       };
-      state.vehicleSlotMap = {};
-      settings.forEach(s => { state.vehicleSlotMap[s.vehicleType] = s.slotCount; });
     } else {
       showToast(res.error || '저장 실패', 'error');
     }
