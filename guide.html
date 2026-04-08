@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오늘의집 3PL 입고예약 시스템 — 고객사 이용 가이드</title>
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --card: #ffffff;
+    --border: #e4e8ef;
+    --text-primary: #1a202c;
+    --text-secondary: #6b7280;
+    --accent: #3b82f6;
+    --green: #10b981;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --purple: #8b5cf6;
+    --indigo: #6366f1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* ---- Header ---- */
+  .site-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #fff;
+    padding: 56px 24px 48px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .site-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 60% 0%, rgba(59,130,246,0.18) 0%, transparent 70%);
+  }
+  .site-header .logo { font-size: 13px; font-weight: 700; color: #60a5fa; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+  .site-header h1 { font-size: clamp(22px, 5vw, 36px); font-weight: 800; line-height: 1.3; margin-bottom: 14px; position: relative; }
+  .site-header p { font-size: 15px; color: #94a3b8; max-width: 560px; margin: 0 auto; position: relative; }
+  .badge-guide { display: inline-block; background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 20px; padding: 4px 14px; font-size: 12px; font-weight: 600; margin-bottom: 16px; }
+
+  /* ---- TOC ---- */
+  .toc-bar {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    overflow-x: auto;
+    white-space: nowrap;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  }
+  .toc-bar ul { display: inline-flex; list-style: none; padding: 0 16px; gap: 0; min-width: max-content; }
+  .toc-bar li a {
+    display: block; padding: 14px 18px; font-size: 13px; font-weight: 600;
+    color: var(--text-secondary); text-decoration: none; border-bottom: 3px solid transparent;
+    transition: all .2s; white-space: nowrap;
+  }
+  .toc-bar li a:hover { color: var(--accent); }
+  .toc-bar li a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ---- Main layout ---- */
+  .main { max-width: 860px; margin: 0 auto; padding: 48px 20px 80px; }
+
+  /* ---- Sections ---- */
+  .section { margin-bottom: 64px; scroll-margin-top: 60px; }
+  .section-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .section-label .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+  .section h2 {
+    font-size: clamp(20px, 4vw, 26px); font-weight: 800; color: var(--text-primary);
+    margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid var(--border);
+  }
+  .section h3 { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 24px 0 12px; }
+
+  /* ---- Card ---- */
+  .card {
+    background: var(--card); border-radius: 16px; border: 1px solid var(--border);
+    padding: 28px; margin-bottom: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .card-accent { border-left: 4px solid var(--accent); }
+  .card-green  { border-left: 4px solid var(--green); }
+  .card-amber  { border-left: 4px solid var(--amber); }
+  .card-red    { border-left: 4px solid var(--red); }
+
+  /* ---- Callout ---- */
+  .callout {
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;
+    display: flex; gap: 12px; align-items: flex-start;
+    font-size: 14px;
+  }
+  .callout-icon { font-size: 20px; flex-shrink: 0; line-height: 1.4; }
+  .callout.info    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .callout.warn    { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+  .callout.danger  { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .callout.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+
+  /* ---- Steps ---- */
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: 0; }
+  .step-item {
+    display: flex; gap: 16px; position: relative;
+    padding-bottom: 32px;
+  }
+  .step-item:last-child { padding-bottom: 0; }
+  .step-item:last-child .step-line { display: none; }
+  .step-num-wrap { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .step-num {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: 16px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; z-index: 1;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.35);
+  }
+  .step-line { flex: 1; width: 2px; background: #e5e7eb; margin-top: 6px; }
+  .step-body { padding-top: 6px; flex: 1; }
+  .step-body h4 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
+  .step-body p  { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+
+  /* ---- Timeline ---- */
+  .timeline { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 16px 0; }
+  .tl-node {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    min-width: 80px; text-align: center;
+  }
+  .tl-circle {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; border: 2px solid;
+  }
+  .tl-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+  .tl-arrow { font-size: 18px; color: #d1d5db; padding: 0 4px; align-self: flex-start; margin-top: 14px; }
+
+  .status-승인대기 { background: #fef3c7; border-color: var(--amber); color: #92400e; }
+  .status-확정     { background: #d1fae5; border-color: var(--green); color: #065f46; }
+  .status-완료     { background: #dbeafe; border-color: var(--accent); color: #1d4ed8; }
+  .status-취소     { background: #fee2e2; border-color: var(--red); color: #991b1b; }
+
+  /* ---- Rule table ---- */
+  .rule-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 16px 0; }
+  .rule-table th {
+    background: #f8fafc; font-weight: 700; color: var(--text-secondary);
+    font-size: 12px; text-transform: uppercase; letter-spacing: .4px;
+    padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border);
+  }
+  .rule-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .rule-table tr:last-child td { border-bottom: none; }
+  .rule-table tr:hover td { background: #f8fafc; }
+
+  /* ---- Dock chips ---- */
+  .dock-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    margin: 2px;
+  }
+  .dock-pinewood { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .dock-general  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+  .dock-shared   { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+  .dock-blocked  { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+
+  /* ---- FAQ ---- */
+  .faq-item { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .faq-q {
+    padding: 16px 20px; font-size: 14px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    background: #fff; user-select: none; gap: 12px;
+  }
+  .faq-q:hover { background: #f8fafc; }
+  .faq-q .arrow { font-size: 10px; color: var(--text-secondary); transition: transform .2s; flex-shrink: 0; }
+  .faq-q.open .arrow { transform: rotate(180deg); }
+  .faq-a { display: none; padding: 0 20px 16px; font-size: 14px; color: var(--text-secondary); background: #fff; }
+  .faq-a.show { display: block; }
+
+  /* ---- Tag ---- */
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; vertical-align: middle;
+  }
+  .tag-required { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .tag-optional { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+
+  /* ---- Slot visual ---- */
+  .slot-grid-demo {
+    display: grid; grid-template-columns: 60px repeat(2, 1fr); gap: 3px;
+    font-size: 11px; max-width: 380px; margin: 12px 0;
+  }
+  .slot-cell {
+    padding: 6px 4px; border-radius: 4px; text-align: center; font-weight: 600;
+  }
+  .slot-header { background: #f8fafc; color: var(--text-secondary); font-size: 10px; text-transform: uppercase; }
+  .slot-time   { background: #f8fafc; color: var(--text-secondary); font-size: 10px; }
+  .slot-avail  { background: #d1fae5; color: #065f46; cursor: pointer; }
+  .slot-occupied { background: #f3f4f6; color: #9ca3af; }
+  .slot-lunch  { background: #fef3c7; color: #92400e; }
+  .slot-selected { background: var(--accent); color: #fff; }
+
+  /* ---- Deadline visual ---- */
+  .deadline-bar { display: flex; gap: 0; margin: 16px 0; flex-wrap: wrap; }
+  .db-cell {
+    flex: 1; min-width: 80px; padding: 12px 10px; text-align: center;
+    border: 1px solid var(--border); font-size: 12px;
+  }
+  .db-cell:first-child { border-radius: 8px 0 0 8px; }
+  .db-cell:last-child  { border-radius: 0 8px 8px 0; }
+  .db-cell .db-day  { font-size: 14px; font-weight: 800; margin-bottom: 4px; }
+  .db-cell .db-note { font-size: 10px; }
+  .db-today    { background: #fee2e2; border-color: var(--red); }
+  .db-d1before { background: #fef3c7; border-color: var(--amber); }
+  .db-d1after  { background: #fef3c7; border-color: var(--amber); }
+  .db-free     { background: #f0fdf4; border-color: var(--green); }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 600px) {
+    .main { padding: 32px 14px 60px; }
+    .card { padding: 20px 16px; }
+    .site-header { padding: 40px 16px 36px; }
+    .slot-grid-demo { max-width: 100%; }
+    .timeline { gap: 4px; }
+    .tl-node { min-width: 60px; }
+  }
+
+  /* ---- Print ---- */
+  @media print {
+    .toc-bar { display: none; }
+    .site-header { background: #1e293b; }
+    .section { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<div class="site-header">
+  <div class="badge-guide">고객사 이용 가이드</div>
+  <h1>오늘의집 3PL<br>입고예약 시스템</h1>
+  <p>도크 예약 등록부터 관리까지 — 단계별 사용 방법 안내</p>
+</div>
+
+<!-- ===== TOC ===== -->
+<nav class="toc-bar">
+  <ul>
+    <li><a href="#sec-start">시작하기</a></li>
+    <li><a href="#sec-reserve">예약 등록</a></li>
+    <li><a href="#sec-manage">예약 관리</a></li>
+    <li><a href="#sec-rules">운영 규칙</a></li>
+    <li><a href="#sec-dock">도크 안내</a></li>
+    <li><a href="#sec-faq">자주 묻는 질문</a></li>
+  </ul>
+</nav>
+
+<!-- ===== MAIN ===== -->
+<div class="main">
+
+  <!-- ===== 1. 시작하기 ===== -->
+  <section class="section" id="sec-start">
+    <div class="section-label"><span class="dot"></span>GETTING STARTED</div>
+    <h2>시작하기 — 로그인</h2>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div>고객사 페이지 접속 후 관리자에게 발급받은 <strong>업체코드</strong>와 <strong>비밀번호</strong>로 로그인합니다.</div>
+    </div>
+
+    <div class="card card-accent">
+      <h3 style="margin-top:0;">로그인 정보</h3>
+      <table class="rule-table">
+        <thead><tr><th>항목</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td><strong>업체코드</strong></td><td>관리자가 발급한 고유 코드 (예: <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;">COMP001</code>)</td></tr>
+          <tr><td><strong>비밀번호</strong></td><td>최초 발급 비밀번호 (변경 필요 시 관리자에게 요청)</td></tr>
+          <tr><td><strong>세션 유지</strong></td><td>8시간 자동 유지. 이후 재로그인 필요</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠️</span>
+      <div>계정 상태가 <strong>비활성</strong>이면 로그인이 차단됩니다. 접속이 안 될 경우 관리자에게 문의하세요.</div>
+    </div>
+  </section>
+
+  <!-- ===== 2. 예약 등록 ===== -->
+  <section class="section" id="sec-reserve">
+    <div class="section-label"><span class="dot"></span>RESERVATION</div>
+    <h2>예약 등록 — 4단계 위저드</h2>
+
+    <div class="callout success">
+      <span class="callout-icon">✅</span>
+      <div>로그인 후 <strong>예약하기</strong> 탭을 선택하면 4단계 과정으로 입고 도크를 예약할 수 있습니다.</div>
+    </div>
+
+    <div class="steps">
+
+      <!-- Step 1 -->
+      <div class="step-item">
+        <div class="step-num-wrap">
+          <div class="step-num">1</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <h4>차량유형 / 작업유형 선택</h4>
+          <p>입고 차량의 종류와 작업 방식을 선택합니다. 이 조합에 따라 소요 시간(슬롯 수)이 달라집니다.</p>
+          <table class="rule-table">
+            <thead><tr><th>차량유형</th><th>작업유형</th><th>비고</th></tr></thead>
+            <tbody>
+              <tr><td>1T</td><td rowspan="5">수작업 / 파렛트</td><td>차량 크기에 따라 소요 슬롯이 다름</td></tr>
+              <tr><td>5T</td><td></td></tr>
+              <tr><td>11T</td><td></td></tr>
+              <tr><td>컨테이너 20FT</td><td></td></tr>
+              <tr><td>컨테이너 40FT</td><td></td></tr>
+            </tbody>
+          </table>
+          <div class="callout info" style="margin-top:12px;">
+            <span class="callout-icon">💡</span>
+            <div>차량유형과 작업유형을 <strong>모두 선택</strong>하면 해당 조합의 소요시간이 안내됩니다. 두 항목 모두 선택 후 다음 단계로 이동하세요.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-item">
+        <div class="step-num-wrap">
+          <div class="step-num">2</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <h4>날짜 선택</h4>
+          <p>2주간 달력에서 입고 날짜를 선택합니다. 날짜 셀의 색상으로 예약 가능 여부를 확인할 수 있습니다.</p>
+          <table class="rule-table">
+            <thead><tr><th>표시</th><th>의미</th></tr></thead>
+            <tbody>
+              <tr><td><span style="color:var(--green);font-weight:700;">예약가능</span></td><td>선택 가능</td></tr>
+              <tr><td><span style="color:var(--red);font-weight:700;">당일마감</span></td><td>당일(D+0)은 항상 예약 불가</td></tr>
+              <tr><td><span style="color:var(--red);font-weight:700;">마감(11시)</span></td><td>다음 영업일 — 당일 11시 이후 예약 불가</td></tr>
+              <tr><td><span style="color:var(--text-secondary);font-weight:700;">운영안함</span></td><td>미운영일 (일요일, 공휴일, 관리자 설정)</td></tr>
+              <tr><td><span style="color:var(--text-secondary);font-weight:700;">지난 날짜</span></td><td>과거 날짜는 선택 불가</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-item">
+        <div class="step-num-wrap">
+          <div class="step-num">3</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <h4>시간 / 도크 선택</h4>
+          <p>선택한 날짜의 도크별 슬롯 현황을 확인하고 원하는 시간대를 선택합니다.</p>
+
+          <!-- slot demo -->
+          <div class="slot-grid-demo">
+            <div class="slot-cell slot-header">시간</div>
+            <div class="slot-cell slot-header">도크2</div>
+            <div class="slot-cell slot-header">도크_예비</div>
+
+            <div class="slot-cell slot-time">09:00</div>
+            <div class="slot-cell slot-avail">09:00</div>
+            <div class="slot-cell slot-avail">09:00</div>
+
+            <div class="slot-cell slot-time">09:20</div>
+            <div class="slot-cell slot-occupied">예약됨</div>
+            <div class="slot-cell slot-avail">09:20</div>
+
+            <div class="slot-cell slot-time">09:40</div>
+            <div class="slot-cell slot-occupied">예약됨</div>
+            <div class="slot-cell slot-selected">✓ 선택</div>
+
+            <div class="slot-cell slot-time">12:00</div>
+            <div class="slot-cell slot-lunch" style="grid-column:span 2;">점심시간 (예약불가)</div>
+          </div>
+
+          <table class="rule-table" style="margin-top:12px;">
+            <thead><tr><th>색상</th><th>의미</th></tr></thead>
+            <tbody>
+              <tr><td><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:600;">초록</span></td><td>예약 가능한 슬롯 (클릭하여 선택)</td></tr>
+              <tr><td><span style="background:#f3f4f6;color:#9ca3af;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:600;">회색</span></td><td>이미 예약됨 또는 차단됨</td></tr>
+              <tr><td><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:600;">노란색</span></td><td>점심시간 (12:00~13:00) — 예약 불가</td></tr>
+              <tr><td><span style="background:var(--accent);color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:600;">파란색</span></td><td>현재 선택된 슬롯</td></tr>
+            </tbody>
+          </table>
+          <div class="callout info" style="margin-top:12px;">
+            <span class="callout-icon">💡</span>
+            <div>선택한 차량유형에 따라 <strong>연속 슬롯이 자동 점유</strong>됩니다. 예: 5T 파렛트(3슬롯) 선택 시 09:00 클릭 → 09:00~10:00 자동 선택</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step-item">
+        <div class="step-num-wrap">
+          <div class="step-num">4</div>
+        </div>
+        <div class="step-body">
+          <h4>예약 확인 및 등록</h4>
+          <p>선택한 정보를 최종 확인하고 발주번호를 입력한 후 등록합니다.</p>
+          <table class="rule-table">
+            <thead><tr><th>항목</th><th>필수여부</th><th>내용</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>발주번호</strong></td>
+                <td><span class="tag tag-required">필수</span></td>
+                <td>입고 관련 발주번호 입력. 빈 값 입력 시 예약 거부됨</td>
+              </tr>
+              <tr>
+                <td><strong>메모</strong></td>
+                <td><span class="tag tag-optional">선택</span></td>
+                <td>특이사항, 요청사항 자유 입력</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="callout success" style="margin-top:12px;">
+            <span class="callout-icon">✅</span>
+            <div>등록 완료 시 예약은 <strong>'승인대기'</strong> 상태로 생성됩니다. 관리자 확정 후 '확정' 상태로 변경됩니다.</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /steps -->
+  </section>
+
+  <!-- ===== 3. 예약 관리 ===== -->
+  <section class="section" id="sec-manage">
+    <div class="section-label"><span class="dot"></span>MANAGEMENT</div>
+    <h2>예약 관리</h2>
+
+    <h3>예약 상태 흐름</h3>
+    <div class="timeline">
+      <div class="tl-node">
+        <div class="tl-circle status-승인대기">승인<br>대기</div>
+        <div class="tl-label">고객사 등록 시</div>
+      </div>
+      <div class="tl-arrow">→</div>
+      <div class="tl-node">
+        <div class="tl-circle status-확정">확정</div>
+        <div class="tl-label">관리자 승인</div>
+      </div>
+      <div class="tl-arrow">→</div>
+      <div class="tl-node">
+        <div class="tl-circle status-완료">완료</div>
+        <div class="tl-label">입고 완료</div>
+      </div>
+      <div style="flex-basis:100%;height:0;"></div>
+      <div class="tl-node" style="margin-left:0px;">
+        <div class="tl-circle status-취소" style="font-size:11px;">취소</div>
+        <div class="tl-label">↑ 승인대기만 취소 가능</div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>'승인대기'</strong> 상태의 예약만 고객사가 직접 취소할 수 있습니다. <strong>'확정'</strong> 이후 취소는 관리자에게 문의하세요.</div>
+    </div>
+
+    <h3>내 예약현황 (히스토리)</h3>
+    <div class="card">
+      <ul style="padding-left:20px;font-size:14px;color:var(--text-secondary);line-height:2;">
+        <li><strong>내 예약현황</strong> 탭에서 최근 90일~향후 90일 예약 목록 조회 가능</li>
+        <li>상태 필터 (전체 / 승인대기 / 확정 / 완료 / 취소) 로 분류 조회</li>
+        <li>승인대기 상태의 예약만 <strong>취소 버튼</strong> 표시</li>
+        <li><strong>CSV 다운로드</strong> 버튼으로 예약 목록 엑셀 저장 가능</li>
+      </ul>
+    </div>
+
+    <h3>예약관리 캘린더</h3>
+    <div class="card">
+      <ul style="padding-left:20px;font-size:14px;color:var(--text-secondary);line-height:2;">
+        <li><strong>예약관리</strong> 탭에서 주간 캘린더로 내 예약과 타사 예약 현황 확인</li>
+        <li>내 예약: <span style="background:#d1fae5;color:#065f46;padding:1px 8px;border-radius:3px;font-size:12px;font-weight:600;">초록</span> 으로 표시, 상세 정보 노출</li>
+        <li>타사 예약: <span style="background:#e5e7eb;color:#6b7280;padding:1px 8px;border-radius:3px;font-size:12px;font-weight:600;">회색 '예약완료'</span> 로만 표시 (상세 숨김)</li>
+        <li>이전주 / 다음주 네비게이션 가능</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 4. 운영 규칙 ===== -->
+  <section class="section" id="sec-rules">
+    <div class="section-label"><span class="dot"></span>RULES</div>
+    <h2>운영 규칙</h2>
+
+    <h3>⏰ 예약 마감 규칙 (D-1 오전 11시)</h3>
+
+    <div class="deadline-bar">
+      <div class="db-cell db-today">
+        <div class="db-day">오늘 (D)</div>
+        <div class="db-note">🔴 항상 예약 불가</div>
+      </div>
+      <div class="db-cell db-d1before">
+        <div class="db-day">내일 (D+1)</div>
+        <div class="db-note">🟡 오전 11시 이전 가능<br>11시 이후 불가</div>
+      </div>
+      <div class="db-cell db-free">
+        <div class="db-day">D+2</div>
+        <div class="db-note">🟢 자유 예약 가능</div>
+      </div>
+      <div class="db-cell db-free">
+        <div class="db-day">D+3~</div>
+        <div class="db-note">🟢 자유 예약 가능</div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">📅</span>
+      <div>
+        <strong>예시:</strong> 금요일 오전 11시 이후에는<br>
+        → 금요일(당일) 예약 불가<br>
+        → <strong>월요일(다음 영업일)</strong> 예약도 불가 (주말은 영업일에서 제외)
+      </div>
+    </div>
+
+    <h3>🕐 점심시간 차단</h3>
+    <div class="card card-amber">
+      <p style="font-size:14px;"><strong>12:00 ~ 13:00</strong> 구간은 예약 불가 슬롯으로 자동 차단됩니다.<br>이 시간을 포함하는 슬롯은 예약할 수 없습니다.</p>
+    </div>
+
+    <h3>📦 하루 예약 한도</h3>
+    <div class="card">
+      <p style="font-size:14px;color:var(--text-secondary);">관리자가 업체별로 아래 한도를 설정할 수 있습니다. 한도 초과 시 예약이 거부됩니다.</p>
+      <table class="rule-table" style="margin-top:12px;">
+        <thead><tr><th>한도 유형</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td><strong>하루 총 대수</strong></td><td>당일 전체 예약 가능 최대 건수 (0 = 무제한)</td></tr>
+          <tr><td><strong>차량유형별 제한</strong></td><td>특정 차량 (예: 11T) 하루 최대 대수</td></tr>
+          <tr><td><strong>작업유형별 제한</strong></td><td>특정 작업 (예: 파렛트) 하루 최대 대수</td></tr>
+        </tbody>
+      </table>
+      <div class="callout info" style="margin-top:12px;">
+        <span class="callout-icon">💡</span>
+        <div>슬롯 선택 화면 상단에 <strong>잔여 예약 가능 건수</strong>가 표시됩니다. 미리 확인하세요.</div>
+      </div>
+    </div>
+
+    <h3>📝 발주번호 필수 입력</h3>
+    <div class="card card-red">
+      <p style="font-size:14px;">예약 등록 시 <strong>발주번호</strong>를 반드시 입력해야 합니다. 빈 값 입력 시 예약이 거부됩니다.</p>
+    </div>
+  </section>
+
+  <!-- ===== 5. 도크 안내 ===== -->
+  <section class="section" id="sec-dock">
+    <div class="section-label"><span class="dot"></span>DOCK GUIDE</div>
+    <h2>도크 구성 안내</h2>
+
+    <div class="card" style="margin-bottom:16px;">
+      <table class="rule-table">
+        <thead><tr><th>도크</th><th>구분</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>도크</strong></td>
+            <td>업체 지정 도크</td>
+            <td>업체별로 배정된 전용 도크</td>
+          </tr>
+          <tr>
+            <td><strong>도크_예비</strong></td>
+            <td>공용 예비 도크</td>
+            <td>관리자가 날짜별로 활성화 시 추가 이용 가능</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">🔒</span>
+      <div>고객사 화면에는 <strong>해당 업체에 배정된 도크만 표시</strong>됩니다. 배정 도크 외에는 예약할 수 없습니다.</div>
+    </div>
+
+    <h3>도크_예비 이용 조건</h3>
+    <div class="card">
+      <ul style="padding-left:20px;font-size:14px;color:var(--text-secondary);line-height:2;">
+        <li>기본적으로 <strong>비활성</strong> 상태 (예약 불가)</li>
+        <li>관리자가 특정 날짜에 활성화한 경우에만 이용 가능</li>
+        <li>물량이 많은 날, 특별 운영일에 활성화됨</li>
+        <li>예약 화면에서 <span class="dock-chip dock-shared" style="font-size:11px;">도크_예비</span> 컬럼이 표시되면 예약 가능</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 6. FAQ ===== -->
+  <section class="section" id="sec-faq">
+    <div class="section-label"><span class="dot"></span>FAQ</div>
+    <h2>자주 묻는 질문</h2>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>예약했는데 '승인대기' 상태입니다. 언제 확정되나요?</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">
+        고객사가 예약하면 자동으로 '승인대기' 상태로 생성됩니다. 물류센터 운영팀이 확인 후 '확정'으로 변경합니다. 긴급 확정이 필요한 경우 운영팀에 직접 연락 바랍니다.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>확정된 예약을 취소하고 싶습니다.</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">
+        고객사 화면에서는 <strong>'승인대기'</strong> 상태의 예약만 직접 취소할 수 있습니다. '확정' 이후 취소는 물류센터 운영팀에 요청해야 합니다. 단, 당일(D+0)과 다음 영업일(오전 11시 이후)은 마감 규칙으로 취소도 불가합니다.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>오전 11시 이후인데 내일 예약을 못 하고 있습니다.</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">
+        <strong>D-1 오전 11시 마감 규칙</strong>에 따라, 당일 11시 이후에는 다음 영업일 예약이 차단됩니다.<br>
+        예외적으로 운영팀이 마감을 임시 해제할 수 있으니, 긴급한 경우 운영팀에 문의하세요.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>슬롯 선택 화면에서 특정 도크가 보이지 않습니다.</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">
+        고객사 화면에는 해당 업체에 배정된 도크만 표시됩니다. 배정 도크 확인이 필요하면 운영팀에 문의하세요. 도크_예비는 관리자가 해당 날짜를 활성화한 경우에만 표시됩니다.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>예약 한도 초과로 예약이 거부됩니다.</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">
+        업체별로 하루 최대 예약 건수(총 대수), 차량유형별, 작업유형별 한도가 설정되어 있습니다. 한도 조정이 필요한 경우 운영팀에 문의하세요. 슬롯 선택 화면 상단에서 현재 사용량과 잔여 한도를 확인할 수 있습니다.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>발주번호를 모르는데 예약할 수 있나요?</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">
+        <strong>발주번호는 필수 입력 항목</strong>입니다. 발주번호가 없는 상태로는 예약이 불가합니다. 발주번호 확인 후 예약을 진행해 주세요.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>12시에 예약하려고 하는데 선택이 안 됩니다.</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">
+        <strong>12:00 ~ 13:00는 점심시간으로 자동 차단</strong>됩니다. 해당 시간을 포함하는 슬롯은 예약이 불가합니다. 12시 이전 또는 13시 이후 시간을 선택해 주세요.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>로그인이 안 됩니다.</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">
+        아래 사항을 확인해 주세요:<br>
+        1. 업체코드와 비밀번호를 정확히 입력했는지 확인 (대소문자 구분)<br>
+        2. 계정이 <strong>비활성</strong> 상태인 경우 로그인이 차단됩니다 → 운영팀에 활성화 요청<br>
+        3. 비밀번호를 잊어버린 경우 운영팀에 초기화 요청
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <div style="text-align:center;padding-top:40px;border-top:1px solid var(--border);">
+    <p style="font-size:13px;color:var(--text-secondary);">문의: 물류센터 운영팀</p>
+    <p style="font-size:12px;color:#d1d5db;margin-top:6px;">오늘의집 3PL 입고예약 시스템 — 고객사 이용 가이드</p>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+function toggleFaq(el) {
+  el.classList.toggle('open');
+  const answer = el.nextElementSibling;
+  answer.classList.toggle('show');
+}
+
+// TOC active state on scroll
+const sections = document.querySelectorAll('section[id]');
+const tocLinks = document.querySelectorAll('.toc-bar a');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      tocLinks.forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id);
+      });
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
