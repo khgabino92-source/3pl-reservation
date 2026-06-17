@@ -100,6 +100,8 @@
   .time-cell.non-operating:hover { background: #f3f4f6; }
   .time-cell.dock-inactive { background: #f9fafb; cursor: default; }
   .time-cell.dock-inactive:hover { background: #f9fafb; }
+  .time-cell.lunch { background: repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 6px,#e5e7eb 6px,#e5e7eb 12px); cursor: default; }
+  .time-cell.lunch:hover { background: repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 6px,#e5e7eb 6px,#e5e7eb 12px); }
 
   /* Reservation cards in cells */
   .rsv-card { position: relative; margin: 0px; padding: 2px 3px; border-radius: 3px; font-size: 9px; line-height: 1.2; text-align: left; cursor: pointer; overflow: hidden; height: calc(100% - 0px); display: flex; flex-direction: column; justify-content: center; }
@@ -558,6 +560,11 @@ function getSlotCountForReservation(rsv) {
   return state.vehicleSlotMap[rsv.vehicleType] || 1;
 }
 
+// 점심시간(12:00~13:00) 슬롯 여부
+function isLunchSlot(t) {
+  return t >= '12:00' && t < '13:00';
+}
+
 // ============================================================
 // Calendar Rendering
 // ============================================================
@@ -774,7 +781,11 @@ function renderCalendar() {
           tbodyHtml += `</div>`;
           tbodyHtml += '</td>';
         } else if (!cell) {
-          tbodyHtml += `<td class="time-cell" onclick="showSlotActionModal('${ds}','${timeSlots[s]}',${dk + 1})"></td>`;
+          if (isLunchSlot(timeSlots[s])) {
+            tbodyHtml += `<td class="time-cell lunch" title="점심시간 (예약 불가)"></td>`;
+          } else {
+            tbodyHtml += `<td class="time-cell" onclick="showSlotActionModal('${ds}','${timeSlots[s]}',${dk + 1})"></td>`;
+          }
         } else {
           tbodyHtml += `<td class="time-cell"></td>`;
         }
@@ -928,7 +939,7 @@ function showCreateModal(date, time, dock) {
 
   let vehicleOptions = '';
   for (const v of vehicleTypes) {
-    vehicleOptions += `<option value="${escAttr(v.vehicleType)}">${escHtml(v.vehicleType)} (${v.slotCount}슬롯/${v.slotCount * state.slotMinutes}분)</option>`;
+    vehicleOptions += `<option value="${escAttr(v.vehicleType)}">${escHtml(v.vehicleType)}</option>`;
   }
 
   let workOptions = '';
@@ -940,9 +951,10 @@ function showCreateModal(date, time, dock) {
   html += `<div class="detail-row"><span class="detail-label">날짜</span><span class="detail-value">${date}</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">시작시간</span><span class="detail-value">${time}</span></div>`;
   html += `<div class="detail-row"><span class="detail-label">도크</span><span class="detail-value">도크${dock}</span></div>`;
-  html += `<div class="form-group"><label>업체</label><select id="modal-company">${customerOptions}</select></div>`;
-  html += `<div class="form-group"><label>차량유형</label><select id="modal-vehicle">${vehicleOptions}</select></div>`;
-  html += `<div class="form-group"><label>작업유형</label><select id="modal-work">${workOptions}</select></div>`;
+  html += `<div class="form-group"><label>업체</label><select id="modal-company" onchange="updateCreateSlotPreview()">${customerOptions}</select></div>`;
+  html += `<div class="form-group"><label>차량유형</label><select id="modal-vehicle" onchange="updateCreateSlotPreview()">${vehicleOptions}</select></div>`;
+  html += `<div class="form-group"><label>작업유형</label><select id="modal-work" onchange="updateCreateSlotPreview()">${workOptions}</select></div>`;
+  html += `<div id="create-slot-preview" style="margin:-4px 0 12px;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:13px;color:#1d4ed8;"></div>`;
   html += `<div class="form-group"><label>발주번호</label><input type="text" id="modal-po" placeholder="발주번호 입력"></div>`;
   html += `<div class="form-group"><label>메모</label><textarea id="modal-memo" rows="2" placeholder="메모 (선택사항)"></textarea></div>`;
   html += `<div class="modal-actions">`;
@@ -961,11 +973,27 @@ function showCreateModal(date, time, dock) {
           }
         }
         sel.innerHTML = opts;
+        updateCreateSlotPreview();
       }
     });
   }
 
   openModal(html);
+  updateCreateSlotPreview();
+}
+
+// 등록 모달: 선택한 업체(파인우드/일반)+차량+작업유형 기준 실제 소요슬롯을 실시간 표시
+function updateCreateSlotPreview() {
+  const el = document.getElementById('create-slot-preview');
+  if (!el) return;
+  const companyCode = document.getElementById('modal-company')?.value || '';
+  const vehicleType = document.getElementById('modal-vehicle')?.value || '';
+  const workType = document.getElementById('modal-work')?.value || '';
+  if (!vehicleType) { el.innerHTML = '차량유형을 선택하면 소요슬롯이 표시됩니다.'; return; }
+  const slotCount = getSlotCountForReservation({ companyCode, vehicleType, workType, status: '' });
+  const sm = state.slotMinutes;
+  const isPinewood = companyCode === 'PINEWOOD';
+  el.innerHTML = `소요슬롯: <strong>${slotCount}슬롯 (${slotCount * sm}분)</strong> <span style="color:#64748b;font-size:11px;">· ${isPinewood ? '파인우드' : '일반'} / ${escHtml(workType || '-')} 기준 (설정 매트릭스 반영)</span>`;
 }
 
 async function loadCustomersForModal() {
