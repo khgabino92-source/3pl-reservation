@@ -252,6 +252,7 @@
                 <th>담당자명</th>
                 <th>연락처</th>
                 <th>하루총대수</th>
+                <th>도크3기간</th>
                 <th>상태</th>
                 <th>관리</th>
               </tr>
@@ -693,11 +694,12 @@ function renderCalendar() {
     theadHtml += `<option value="운영" ${operating ? 'selected' : ''}>운영</option>`;
     theadHtml += `<option value="미운영" ${!operating ? 'selected' : ''}>미운영</option>`;
     theadHtml += `</select>`;
-    theadHtml += ` <select onchange="updateDateDockCount('${ds}', this.value)" style="font-size:10px;" title="도크 수">`;
-    for (let dk = 1; dk <= maxDocks; dk++) {
-      theadHtml += `<option value="${dk}" ${activeDocks === dk ? 'selected' : ''}>${dk}도크</option>`;
-    }
-    theadHtml += `</select>`;
+    const schedHdr = state.schedule[ds] || {};
+    const d3manual = schedHdr.dock3Companies || [];
+    const d3auto = schedHdr.dock3Auto || [];
+    const dock3Open = activeDocks >= 3 || d3manual.length > 0 || d3auto.length > 0;
+    const d3count = d3manual.length + d3auto.length;
+    theadHtml += ` <button onclick="showDockSettingModal('${ds}')" style="font-size:10px;padding:2px 6px;border:1px solid #cbd5e1;border-radius:4px;background:${dock3Open ? '#eff6ff' : '#fff'};color:${dock3Open ? '#1d4ed8' : '#374151'};cursor:pointer;" title="도크 설정">${dock3Open ? '3도크' + (d3count ? `(+${d3count}사)` : '') : activeDocks + '도크'}</button>`;
     theadHtml += ` <span class="cnt cnt-pending">대기:${counts.pending}</span>`;
     theadHtml += ` <span class="cnt cnt-approved">확정:${counts.approved}</span>`;
     theadHtml += `</div>`;
@@ -829,6 +831,75 @@ async function updateDateDockCount(dateStr, value) {
       showToast(`${dateStr} 도크 ${dockCount}개 설정`, 'success');
     } else {
       showToast(res.error || '업데이트 실패', 'error');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// 일자별 도크3 설정 모달
+// ============================================================
+function showDockSettingModal(date, _retried) {
+  // 고객사 목록이 아직 없으면 한 번 로드 후 재호출
+  if ((state.customers || []).length === 0 && !_retried) {
+    loadCustomersForModal().then(() => showDockSettingModal(date, true));
+    return;
+  }
+  const sched = state.schedule[date] || {};
+  const manual = sched.dock3Companies || [];
+  const auto = sched.dock3Auto || [];
+  const open3 = (getDateDockCount(date) >= 3) || manual.length > 0 || auto.length > 0;
+  const customers = (state.customers || []).filter(c => c.status === '활성');
+
+  let html = `<h2>${date} 도크 설정</h2>`;
+  html += `<div class="form-group"><label style="cursor:pointer;"><input type="checkbox" id="dock3-open" ${open3 ? 'checked' : ''} onchange="toggleDock3CompanyList()"> <strong>도크3 개방</strong></label></div>`;
+  html += `<div id="dock3-company-box" style="${open3 ? '' : 'display:none;'}">`;
+  html += `<p style="font-size:11px;color:var(--text-secondary);margin:4px 0 8px;">이 날짜에 도크3을 사용할 수 있는 업체를 선택하세요.</p>`;
+  if (auto.length) html += `<p style="font-size:11px;color:#1d4ed8;margin-bottom:8px;">· 기간부여 자동 포함: ${auto.map(escHtml).join(', ')}</p>`;
+  html += `<div style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px;">`;
+  if (customers.length === 0) {
+    html += `<div style="color:var(--text-secondary);font-size:12px;">활성 고객사가 없습니다.</div>`;
+  } else {
+    for (const c of customers) {
+      const isAuto = auto.indexOf(c.companyCode) !== -1;
+      const checked = (isAuto || manual.indexOf(c.companyCode) !== -1) ? 'checked' : '';
+      html += `<label style="display:block;padding:4px 0;font-size:13px;${isAuto ? 'color:#1d4ed8;' : ''}"><input type="checkbox" class="dock3-cust" value="${escAttr(c.companyCode)}" ${checked} ${isAuto ? 'disabled' : ''}> ${escHtml(c.companyName)} (${escHtml(c.companyCode)})${isAuto ? ' · 기간부여' : ''}</label>`;
+    }
+  }
+  html += `</div></div>`;
+  html += `<div class="modal-actions" style="margin-top:16px;">`;
+  html += `<button class="btn btn-primary btn-sm" onclick="saveDockSetting('${date}')">저장</button>`;
+  html += `<button class="btn btn-outline btn-sm" onclick="closeModal()">취소</button>`;
+  html += `</div>`;
+  openModal(html);
+}
+
+function toggleDock3CompanyList() {
+  const open = document.getElementById('dock3-open').checked;
+  const box = document.getElementById('dock3-company-box');
+  if (box) box.style.display = open ? '' : 'none';
+}
+
+async function saveDockSetting(date) {
+  const open3 = document.getElementById('dock3-open').checked;
+  const sched = state.schedule[date] || {};
+  const operating = sched.operating || '운영';
+  const dock3Companies = [];
+  if (open3) {
+    document.querySelectorAll('.dock3-cust').forEach(cb => {
+      if (cb.checked && !cb.disabled) dock3Companies.push(cb.value);
+    });
+  }
+  const dockCount = open3 ? 3 : 2;
+  try {
+    const res = await apiPost('updateSchedule', { date, operating, dockCount, note: sched.note || '', dock3Companies });
+    if (res.success) {
+      closeModal();
+      showToast(`${date} 도크 설정이 저장되었습니다.`, 'success');
+      loadCalendarData();
+    } else {
+      showToast(res.error || '저장 실패', 'error');
     }
   } catch (e) {
     showToast('서버 오류: ' + e.message, 'error');
@@ -1115,7 +1186,7 @@ function renderCustomerTable() {
 
   let html = '';
   if (filtered.length === 0) {
-    html = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:32px;">등록된 고객사가 없습니다.</td></tr>';
+    html = '<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);padding:32px;">등록된 고객사가 없습니다.</td></tr>';
   } else {
     for (const c of filtered) {
       const badgeClass = c.status === '활성' ? 'badge-active' : 'badge-inactive';
@@ -1126,6 +1197,7 @@ function renderCustomerTable() {
         <td>${escHtml(c.contactName)}</td>
         <td>${escHtml(c.phone)}</td>
         <td style="font-weight:600;">${c.dailyTotal || '-'}</td>
+        <td style="font-size:11px;">${(c.dock3Start && c.dock3End) ? escHtml(c.dock3Start) + '~' + escHtml(c.dock3End) : '-'}</td>
         <td><span class="badge ${badgeClass}">${escHtml(c.status)}</span></td>
         <td>
           <button class="btn btn-outline btn-sm" onclick="showEditCustomerModal('${escAttr(c.companyCode)}')" style="margin-right:4px;">수정</button>
@@ -1184,6 +1256,12 @@ function showCustomerModal(customer) {
   }
   html += `</tbody></table></div>`;
 
+  // 도크3 개방 기간 (기간부여)
+  html += `<hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">`;
+  html += `<h3 style="font-size:14px;font-weight:700;margin-bottom:8px;">도크3 개방 기간</h3>`;
+  html += `<p style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">설정 시 해당 기간 동안 이 업체는 운영일에 도크3을 예약할 수 있습니다. (관리자 일자별 설정 불필요 · 비우면 미부여)</p>`;
+  html += `<div style="display:flex;gap:8px;"><div class="form-group" style="flex:1;"><label>시작일</label><input type="date" id="modal-cust-dock3-start" value="${isEdit ? escAttr(customer.dock3Start || '') : ''}"></div><div class="form-group" style="flex:1;"><label>종료일</label><input type="date" id="modal-cust-dock3-end" value="${isEdit ? escAttr(customer.dock3End || '') : ''}"></div></div>`;
+
   html += `<div class="modal-actions">`;
   html += `<button class="btn btn-primary btn-sm" onclick="${isEdit ? `submitEditCustomer('${escAttr(customer.companyCode)}')` : 'submitCreateCustomer()'}">${isEdit ? '수정' : '등록'}</button>`;
   html += `<button class="btn btn-outline btn-sm" onclick="closeModal()">취소</button>`;
@@ -1218,10 +1296,18 @@ async function submitCreateCustomer() {
   const password = document.getElementById('modal-cust-pw').value.trim();
   const contactName = document.getElementById('modal-cust-contact').value.trim();
   const phone = document.getElementById('modal-cust-phone').value.trim();
+  const dock3Start = document.getElementById('modal-cust-dock3-start').value;
+  const dock3End = document.getElementById('modal-cust-dock3-end').value;
   const limits = collectLimitsFromModal();
 
   if (!companyCode || !companyName || !password) {
     showToast('업체코드, 업체명, 비밀번호는 필수입니다.', 'error'); return;
+  }
+  if ((dock3Start && !dock3End) || (!dock3Start && dock3End)) {
+    showToast('도크3 기간은 시작일과 종료일을 모두 입력하세요.', 'error'); return;
+  }
+  if (dock3Start && dock3End && dock3Start > dock3End) {
+    showToast('도크3 종료일이 시작일보다 빠릅니다.', 'error'); return;
   }
 
   try {
@@ -1229,7 +1315,8 @@ async function submitCreateCustomer() {
       companyCode, companyName, password, contactName, phone,
       dailyTotal: limits.dailyTotal,
       vehicleLimits: limits.vehicleLimits,
-      workTypeLimits: limits.workTypeLimits
+      workTypeLimits: limits.workTypeLimits,
+      dock3Start, dock3End
     });
     if (res.success) {
       closeModal();
@@ -1247,9 +1334,17 @@ async function submitEditCustomer(companyCode) {
   const companyName = document.getElementById('modal-cust-name').value.trim();
   const contactName = document.getElementById('modal-cust-contact').value.trim();
   const phone = document.getElementById('modal-cust-phone').value.trim();
+  const dock3Start = document.getElementById('modal-cust-dock3-start').value;
+  const dock3End = document.getElementById('modal-cust-dock3-end').value;
   const limits = collectLimitsFromModal();
 
   if (!companyName) { showToast('업체명은 필수입니다.', 'error'); return; }
+  if ((dock3Start && !dock3End) || (!dock3Start && dock3End)) {
+    showToast('도크3 기간은 시작일과 종료일을 모두 입력하세요.', 'error'); return;
+  }
+  if (dock3Start && dock3End && dock3Start > dock3End) {
+    showToast('도크3 종료일이 시작일보다 빠릅니다.', 'error'); return;
+  }
 
   try {
     const res = await apiPost('updateCustomer', {
@@ -1258,7 +1353,8 @@ async function submitEditCustomer(companyCode) {
         companyName, contactName, phone,
         dailyTotal: limits.dailyTotal,
         vehicleLimits: limits.vehicleLimits,
-        workTypeLimits: limits.workTypeLimits
+        workTypeLimits: limits.workTypeLimits,
+        dock3Start, dock3End
       }
     });
     if (res.success) {
