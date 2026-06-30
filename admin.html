@@ -553,6 +553,8 @@ async function loadCalendarData() {
 // ============================================================
 function getSlotCountForReservation(rsv) {
   if (rsv.status === '차단') return Number(rsv.vehicleType) || 1;
+  // 백엔드가 계산해 저장한 실제 슬롯수를 최우선 사용 (프론트 재계산 오차로 인한 칸 밀림 방지)
+  if (rsv.slotCount && Number(rsv.slotCount) > 0) return Number(rsv.slotCount);
   const isPinewood = rsv.companyCode === 'PINEWOOD';
   const matrix = isPinewood ? state.durationMatrix.pinewood : state.durationMatrix.general;
   if (matrix && matrix[rsv.vehicleType] && rsv.workType && matrix[rsv.vehicleType][rsv.workType] !== undefined) {
@@ -614,13 +616,23 @@ function buildOccupancyMatrix(dateStr, reservations, dockCount) {
     if (startIdx === -1) continue;
     const dockIdx = rsv.dock - 1;
     if (dockIdx < 0 || dockIdx >= dockCount) continue;
-    const slotCount = getSlotCountForReservation(rsv);
+    // 시작칸이 이미 다른 예약에 점유돼 있으면 건너뜀 (중복 점유 방지)
+    if (matrix[startIdx][dockIdx]) continue;
 
-    for (let k = 0; k < slotCount && (startIdx + k) < timeSlots.length; k++) {
+    const wanted = getSlotCountForReservation(rsv);
+    // 다음 점유칸 또는 하루 끝까지로 span 제한 → rowspan과 skip이 항상 일치(=칸 밀림 원천 차단)
+    let span = 0;
+    for (let k = 0; k < wanted && (startIdx + k) < timeSlots.length; k++) {
+      if (matrix[startIdx + k][dockIdx]) break;
+      span++;
+    }
+    if (span < 1) span = 1;
+
+    for (let k = 0; k < span; k++) {
       matrix[startIdx + k][dockIdx] = {
         reservation: rsv,
         isStart: k === 0,
-        slotCount: slotCount
+        slotCount: span
       };
     }
   }
